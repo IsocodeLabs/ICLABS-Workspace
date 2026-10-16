@@ -1,0 +1,276 @@
+import {
+  and,
+  eq,
+  ne,
+  sql,
+  accounts,
+  auditLog,
+  candidates,
+  rateLimits,
+  sessions,
+  users,
+  type Db,
+} from "@iclabs/db";
+import {
+  checkPwnedPassword,
+  consumeRateLimit,
+  generateTempPassword,
+  isLocked,
+  isTempPasswordExpired,
+  registerFailure,
+  registerSuccess,
+  tempPasswordExpiry,
+  validateNewPassword,
+  type PasswordIssue,
+  type RateLimitRule,
+} from "@iclabs/core";
+import { burnVerifyTime, hashPassword, verifyPassword } from "./password-hash";
+
+/** Side effects that M3 wires to email. They never receive the password itself. */
+export type AuthNotifier = {
+  accountLocked(email: string): Promise<void>;
+  passwordChanged(email: string): Promise<void>;
+};
+
+export const LOGIN_RATE_LIMITS: Record<"ipEmail" | "ip", RateLimitRule> = {
+  ipEmail: { limit: 5, windowMs: 60_000 },
+  ip: { limit: 30, windowMs: 60_000 },
+};
+
+const normalize = (email: string) => email.trim().toLowerCase();
+
+// ─── Accounts & temporary passwords ──────────────────────────────────────────
+
+/**
+ * Creates a candidate login (email = login ID) with a fresh temporary password.
+ * Returns the plaintext password for the welcome email only: it is never stored or logged.
+ */
+export async function createCandidateAccount(
+  db: Db,
+  input: { email: string; name: string },
+  now = new Date(),
+): Promise<{ userId: string; candidateId: string; tempPassword: string }> {
+  const email = normalize(input.email);
+  const [user] = await db
+    .insert(users)
+    .values({ email, name: input.name, kind: "candidate", emailVerified: false })
+    .returning({ id: users.id });
+  const [candidate] = await db
+    .insert(candidates)
+    .values({ userId: user!.id, name: input.name })
+    .returning({ id: candidates.id });
+  const tempPassword = await issueTempPassword(db, user!.id, now);
+  return { userId: user!.id, candidateId: candidate!.id, tempPassword };
+}
+
+/**
+ * Sets (or replaces) the temporary password: 72-hour expiry, forced change on first login,
+ * lock cleared, every existing session ended. Used by invites and "Resend invite".
+ */
+export async function issueTempPassword(db: Db, userId: string, now = new Date()): Promise<string> {
+  const tempPassword = generateTempPassword();
+  const passwordHash = await hashPassword(tempPassword);
+  const [existing] = await db
+    .select({ id: accounts.id })
+    .from(accounts)
+    .where(and(eq(accounts.userId, userId), eq(accounts.providerId, "credential")));
+  if (existing) {
+    await db.update(accounts).set({ password: passwordHash }).where(eq(accounts.id, existing.id));
+  } else {
+    await db
+      .insert(accounts)
+      .values({ userId, accountId: userId, providerId: "credential", password: passwordHash });
+  }
+  await db
+    .update(users)
+    .set({
+      mustChangePassword: true,
+      tempPasswordExpiresAt: tempPasswordExpiry(now),
+      failedLoginCount: 0,
+      lockedUntil: null,
+    })
+    .where(eq(users.id, userId));
+  await db.delete(sessions).where(eq(sessions.userId, userId));
+  await audit(db, { actorUserId: null, action: "temp_password_issued", entityId: userId });
+  return tempPassword;
+}
+
+// ─── Sign-in ─────────────────────────────────────────────────────────────────
+
+export type SignInResult =
+  | { ok: true; mustChangePassword: boolean }
+  | {
+      ok: false;
+      reason: "invalid" | "locked" | "temp_expired" | "rate_limited";
+      retryAfterMs?: number;
+    };
+
+export type SignInDeps = {
+  db: Db;
+  /** Creates the session (Better Auth `signInEmail`). Throws on bad credentials. */
+  createSession: (email: string, password: string) => Promise<void>;
+  notifier: AuthNotifier;
+  now?: () => Date;
+};
+
+/**
+ * Candidate sign-in. Order matters: rate limit → account checks → password. Every failure
+ * returns a generic reason except lock and expiry, which the candidate needs to act on.
+ */
+export async function signInCandidate(
+  deps: SignInDeps,
+  input: { email: string; password: string; ip: string },
+): Promise<SignInResult> {
+  const { db, notifier } = deps;
+  const now = deps.now?.() ?? new Date();
+  const email = normalize(input.email);
+
+  for (const [key, rule] of [
+    [`login:ip-email:${input.ip}:${email}`, LOGIN_RATE_LIMITS.ipEmail],
+    [`login:ip:${input.ip}`, LOGIN_RATE_LIMITS.ip],
+  ] as const) {
+    const limit = await hitRateLimit(db, key, rule, now);
+    if (!limit.allowed)
+      return { ok: false, reason: "rate_limited", retryAfterMs: limit.retryAfterMs };
+  }
+
+  const [user] = await db
+    .select({
+      id: users.id,
+      kind: users.kind,
+      status: users.status,
+      mustChangePassword: users.mustChangePassword,
+      tempPasswordExpiresAt: users.tempPasswordExpiresAt,
+      failedLoginCount: users.failedLoginCount,
+      lockedUntil: users.lockedUntil,
+      passwordHash: accounts.password,
+    })
+    .from(users)
+    .leftJoin(accounts, and(eq(accounts.userId, users.id), eq(accounts.providerId, "credential")))
+    .where(eq(users.email, email));
+
+  if (!user || user.kind !== "candidate" || user.status !== "active" || !user.passwordHash) {
+    await burnVerifyTime(input.password);
+    return { ok: false, reason: "invalid" };
+  }
+
+  const loginState = { failedCount: user.failedLoginCount, lockedUntil: user.lockedUntil };
+  if (isLocked(loginState, now)) {
+    return {
+      ok: false,
+      reason: "locked",
+      retryAfterMs: loginState.lockedUntil!.getTime() - now.getTime(),
+    };
+  }
+
+  const passwordOk = await verifyPassword(user.passwordHash, input.password);
+  if (!passwordOk) {
+    const { state, justLocked } = registerFailure(loginState, now);
+    await db
+      .update(users)
+      .set({ failedLoginCount: state.failedCount, lockedUntil: state.lockedUntil })
+      .where(eq(users.id, user.id));
+    if (justLocked) {
+      await audit(db, { actorUserId: null, action: "account_locked", entityId: user.id });
+      await notifier.accountLocked(email);
+      return {
+        ok: false,
+        reason: "locked",
+        retryAfterMs: state.lockedUntil!.getTime() - now.getTime(),
+      };
+    }
+    return { ok: false, reason: "invalid" };
+  }
+
+  // Correct password, but the temporary one has run out: the candidate needs a new invite.
+  if (user.mustChangePassword && isTempPasswordExpired(user.tempPasswordExpiresAt, now)) {
+    return { ok: false, reason: "temp_expired" };
+  }
+
+  await deps.createSession(email, input.password);
+  const reset = registerSuccess();
+  await db
+    .update(users)
+    .set({ failedLoginCount: reset.failedCount, lockedUntil: reset.lockedUntil })
+    .where(eq(users.id, user.id));
+  return { ok: true, mustChangePassword: user.mustChangePassword };
+}
+
+// ─── Password change ─────────────────────────────────────────────────────────
+
+export type ChangePasswordResult =
+  { ok: true } | { ok: false; reason: "wrong_current" | "breached" | PasswordIssue };
+
+/**
+ * Changes a candidate's password (the forced first-login change, or later from the profile).
+ * Ends every other session and lifts the first-login gate.
+ */
+export async function changeCandidatePassword(
+  deps: { db: Db; notifier: AuthNotifier; fetchFn?: typeof fetch; now?: () => Date },
+  input: { userId: string; currentSessionId: string; currentPassword: string; newPassword: string },
+): Promise<ChangePasswordResult> {
+  const { db } = deps;
+  const now = deps.now?.() ?? new Date();
+
+  const [row] = await db
+    .select({ email: users.email, accountId: accounts.id, passwordHash: accounts.password })
+    .from(users)
+    .innerJoin(accounts, and(eq(accounts.userId, users.id), eq(accounts.providerId, "credential")))
+    .where(eq(users.id, input.userId));
+  if (!row?.passwordHash || !(await verifyPassword(row.passwordHash, input.currentPassword))) {
+    return { ok: false, reason: "wrong_current" };
+  }
+
+  const issues = validateNewPassword(input.newPassword, { previous: input.currentPassword });
+  if (issues.length > 0) return { ok: false, reason: issues[0]! };
+
+  const pwned = await checkPwnedPassword(input.newPassword, deps.fetchFn);
+  if (pwned.pwned) return { ok: false, reason: "breached" };
+
+  await db
+    .update(accounts)
+    .set({ password: await hashPassword(input.newPassword) })
+    .where(eq(accounts.id, row.accountId));
+  await db
+    .update(users)
+    .set({ mustChangePassword: false, tempPasswordExpiresAt: null, passwordChangedAt: now })
+    .where(eq(users.id, input.userId));
+  await db
+    .delete(sessions)
+    .where(and(eq(sessions.userId, input.userId), ne(sessions.id, input.currentSessionId)));
+  await audit(db, {
+    actorUserId: input.userId,
+    action: "password_changed",
+    entityId: input.userId,
+  });
+  await deps.notifier.passwordChanged(row.email);
+  return { ok: true };
+}
+
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+
+async function hitRateLimit(db: Db, key: string, rule: RateLimitRule, now: Date) {
+  const [current] = await db.select().from(rateLimits).where(eq(rateLimits.key, key));
+  const result = consumeRateLimit(current ?? null, now, rule);
+  await db
+    .insert(rateLimits)
+    .values({ key, ...result.bucket })
+    .onConflictDoUpdate({
+      target: rateLimits.key,
+      set: { count: sql`excluded.count`, windowStart: sql`excluded.window_start` },
+    });
+  return result;
+}
+
+async function audit(
+  db: Db,
+  entry: { actorUserId: string | null; action: string; entityId: string },
+): Promise<void> {
+  await db.insert(auditLog).values({
+    actorUserId: entry.actorUserId,
+    actorVia: entry.actorUserId ? "ui" : "system",
+    action: entry.action,
+    entity: "user",
+    entityId: entry.entityId,
+  });
+}

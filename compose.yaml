@@ -1,0 +1,28 @@
+# Local development stack: `docker compose up -d`, then `pnpm db:migrate && pnpm db:seed && pnpm dev`.
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: iclabs
+      POSTGRES_PASSWORD: iclabs
+      POSTGRES_DB: iclabs
+    ports: ["5432:5432"]
+    volumes: [pgdata:/var/lib/postgresql/data]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U iclabs"]
+      interval: 5s
+      retries: 10
+
+  # Catches outgoing email locally (UI at http://localhost:8025). Stands in for Amazon SES.
+  mailpit:
+    image: axllent/mailpit:latest
+    ports: ["8025:8025", "1025:1025"]
+
+  # Local stand-in for Cloud Storage (used from M4).
+  gcs:
+    image: fsouza/fake-gcs-server:latest
+    command: ["-scheme", "http", "-port", "4443", "-public-host", "localhost:4443"]
+    ports: ["4443:4443"]
+
+volumes:
+  pgdata:

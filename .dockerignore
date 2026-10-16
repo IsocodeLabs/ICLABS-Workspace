@@ -1,0 +1,9 @@
+**/node_modules
+**/.next
+**/.turbo
+**/coverage
+**/.env*
+!.env.example
+.git
+docs
+infra

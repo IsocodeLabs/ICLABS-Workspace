@@ -1,0 +1,86 @@
+{
+  "common": {
+    "appName": "Isocode Workspace",
+    "signOut": "Sign out",
+    "loading": "Please wait…"
+  },
+  "login": {
+    "title": "Sign in to your workspace",
+    "subtitle": "Use the email you applied with and the password from your invite email.",
+    "email": "Email",
+    "password": "Password",
+    "submit": "Sign in",
+    "forgot": "Forgot your password?",
+    "teamLink": "Isocode team member? Sign in with Google",
+    "errors": {
+      "invalid": "Email or password is incorrect.",
+      "locked": "Too many attempts. Your account is locked for {minutes} minutes. We've emailed you in case this wasn't you.",
+      "temp_expired": "Your temporary password has expired. Write to hiring@isocodelabs.com and we'll send a new one.",
+      "rate_limited": "Too many attempts. Please wait {minutes} minute(s) and try again."
+    }
+  },
+  "changePassword": {
+    "title": "Create your password",
+    "subtitle": "This is your first sign-in. Choose your own password to continue — at least 10 characters.",
+    "current": "Temporary password (from your email)",
+    "new": "New password",
+    "confirm": "Confirm new password",
+    "submit": "Save password and continue",
+    "errors": {
+      "wrong_current": "The temporary password is incorrect.",
+      "too_short": "Use at least 10 characters.",
+      "too_long": "Use at most 128 characters.",
+      "same_as_previous": "Choose a password different from the temporary one.",
+      "breached": "This password has appeared in a data breach. Please choose another.",
+      "mismatch": "The new passwords don't match."
+    }
+  },
+  "forgot": {
+    "title": "Reset your password",
+    "subtitle": "Enter your email and we'll send you a reset link (valid for 30 minutes).",
+    "submit": "Send reset link",
+    "sent": "If that email has an account, a reset link is on its way.",
+    "back": "Back to sign in"
+  },
+  "reset": {
+    "title": "Choose a new password",
+    "submit": "Save new password",
+    "done": "Password updated. You can sign in now.",
+    "invalid": "This reset link is invalid or has expired. Request a new one."
+  },
+  "teamLogin": {
+    "title": "Team sign-in",
+    "subtitle": "Sign in with your @isocodelabs.com Google account.",
+    "google": "Continue with Google",
+    "notAllowed": "This Google account isn't on the team list. Ask an admin to add you."
+  },
+  "dashboard": {
+    "title": "Your roles",
+    "subtitle": "You can only see roles you've been shortlisted for.",
+    "empty": "You haven't been shortlisted for a role yet.",
+    "status": {
+      "active": "In progress",
+      "needs_decision": "Under review",
+      "on_hold": "Under review",
+      "interview_scheduled": "Interview scheduled",
+      "completed": "Completed",
+      "closed_rejected": "Process closed",
+      "closed_withdrawn": "Withdrawn"
+    }
+  },
+  "team": {
+    "title": "Team workspace",
+    "signedInAs": "Signed in as {email} · {role}",
+    "comingNext": "Roles, the Process Builder and the pipeline arrive in the next milestones.",
+    "roles": {
+      "admin": "Admin",
+      "hiring_manager": "Hiring manager",
+      "reviewer": "Reviewer",
+      "interviewer": "Interviewer"
+    }
+  },
+  "desktopOnly": {
+    "title": "Please switch to a laptop or desktop",
+    "body": "Assessments and tasks need a larger screen. Open this page on a laptop or desktop to continue."
+  }
+}

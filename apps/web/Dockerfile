@@ -1,0 +1,19 @@
+# Build from the repository root:  docker build -f apps/web/Dockerfile .
+FROM node:24-alpine AS base
+RUN corepack enable
+WORKDIR /repo
+
+FROM base AS build
+COPY . .
+RUN pnpm install --frozen-lockfile
+RUN pnpm --filter @iclabs/web build
+
+FROM node:24-alpine AS runtime
+ENV NODE_ENV=production PORT=8080 HOSTNAME=0.0.0.0
+WORKDIR /app
+RUN addgroup -S app && adduser -S app -G app
+COPY --from=build --chown=app:app /repo/apps/web/.next/standalone ./
+COPY --from=build --chown=app:app /repo/apps/web/.next/static ./apps/web/.next/static
+USER app
+EXPOSE 8080
+CMD ["node", "apps/web/server.js"]

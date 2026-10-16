@@ -1,0 +1,85 @@
+/*
+ * Isocode Workspace design tokens.
+ * PLACEHOLDER palette (PRD §6C electric violet). Replace the brand ramp and fonts with the
+ * Isocode brand kit; everything else reads from these variables, so this is the only file
+ * that changes.
+ */
+
+:root {
+  /* Primary: brand ramp */
+  --brand-50: #f3f0ff;
+  --brand-100: #e9e3ff;
+  --brand-200: #d4c9ff;
+  --brand-300: #b5a1ff;
+  --brand-400: #9171ff;
+  --brand-500: #6d4aff;
+  --brand-600: #5a32f0;
+  --brand-700: #4a25cc;
+  --brand-800: #3d20a5;
+  --brand-900: #2f1a7d;
+  --accent-gradient: linear-gradient(135deg, #6d4aff 0%, #22d3ee 100%);
+
+  /* Neutrals: cool slate tinted toward the brand hue */
+  --bg: #f7f7fb;
+  --surface: #ffffff;
+  --border: #e6e6f0;
+  --text: #16162a;
+  --text-muted: #5b5b72;
+
+  /* Semantic: soft pill pairs (subtle background + emphasis text), all AA */
+  --success-bg: #e7f6ec;
+  --success-fg: #1b6b3a;
+  --warning-bg: #fdf3dc;
+  --warning-fg: #8a5a00;
+  --danger-bg: #fdecec;
+  --danger-fg: #a12626;
+  --neutral-bg: #eeeef4;
+  --neutral-fg: #45455a;
+
+  /* Stage-type categorical colours (icon chip + top border only, never alone) */
+  --node-form: #0ea5e9;
+  --node-assessment: #8b5cf6;
+  --node-task: #f97316;
+  --node-review: #14b8a6;
+  --node-custom: #ec4899;
+  --node-interview: #6366f1;
+
+  --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-display: "Plus Jakarta Sans", var(--font-sans);
+  --radius: 16px;
+  --shadow-card: 0 1px 2px rgb(22 22 42 / 0.06), 0 8px 24px rgb(22 22 42 / 0.06);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0f0f1c;
+    --surface: #17172a;
+    --border: #2a2a44;
+    --text: #ececf6;
+    --text-muted: #a3a3bd;
+    --success-bg: #12301f;
+    --success-fg: #8fe0ad;
+    --warning-bg: #33280c;
+    --warning-fg: #f3cd73;
+    --danger-bg: #3a1616;
+    --danger-fg: #f5a3a3;
+    --neutral-bg: #23233a;
+    --neutral-fg: #c4c4d8;
+  }
+}
+
+:root[data-theme="dark"] {
+  --bg: #0f0f1c;
+  --surface: #17172a;
+  --border: #2a2a44;
+  --text: #ececf6;
+  --text-muted: #a3a3bd;
+  --success-bg: #12301f;
+  --success-fg: #8fe0ad;
+  --warning-bg: #33280c;
+  --warning-fg: #f3cd73;
+  --danger-bg: #3a1616;
+  --danger-fg: #f5a3a3;
+  --neutral-bg: #23233a;
+  --neutral-fg: #c4c4d8;
+}
