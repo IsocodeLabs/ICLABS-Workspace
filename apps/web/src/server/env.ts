@@ -30,6 +30,13 @@ const schema = z.object({
   LOCAL_UPLOAD_DIR: z.string().default(".uploads"),
   /** "none" marks uploads clean immediately (local only); "clamav" waits for the scanner. */
   SCAN_MODE: z.enum(["none", "clamav"]).default("none"),
+  // ─── Interviews (Google Calendar + Meet; see docs/TDD.md → Interviews) ───
+  CALENDAR_DRIVER: z.enum(["google", "fake"]).default("fake"),
+  /** Scheduling mailbox that organises every interview event (domain-wide delegation subject). */
+  CALENDAR_ORGANIZER: z.string().default("hiring@isocodelabs.com"),
+  CALENDAR_SA_EMAIL: z.string().optional(),
+  /** The service account's private key (PEM), from Secret Manager. */
+  CALENDAR_SA_KEY: z.string().optional(),
   // ─── AI review suggestions (Claude on Vertex AI; suggestions only, a human always decides) ───
   AI_REVIEW_ENABLED: z.stringbool().default(false),
   VERTEX_PROJECT_ID: z.string().optional(),

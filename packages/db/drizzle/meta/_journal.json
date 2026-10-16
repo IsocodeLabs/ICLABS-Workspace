@@ -36,6 +36,13 @@
       "when": 1792188046012,
       "tag": "0004_reviews",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1792189209798,
+      "tag": "0005_interviews_mcp",
+      "breakpoints": true
     }
   ]
 }
