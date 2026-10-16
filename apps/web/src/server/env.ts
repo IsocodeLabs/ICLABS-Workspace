@@ -30,6 +30,12 @@ const schema = z.object({
   LOCAL_UPLOAD_DIR: z.string().default(".uploads"),
   /** "none" marks uploads clean immediately (local only); "clamav" waits for the scanner. */
   SCAN_MODE: z.enum(["none", "clamav"]).default("none"),
+  // ─── AI review suggestions (Claude on Vertex AI; suggestions only, a human always decides) ───
+  AI_REVIEW_ENABLED: z.stringbool().default(false),
+  VERTEX_PROJECT_ID: z.string().optional(),
+  /** "global" routes to any region with capacity; set a region to pin data residency. */
+  VERTEX_REGION: z.string().default("global"),
+  CLAUDE_MODEL: z.string().default("claude-opus-5-5"),
   /** Local only: lets /api/dev/team-login sign in an allow-listed team email without Google. */
   DEV_TEAM_LOGIN: z.stringbool().default(false),
 });

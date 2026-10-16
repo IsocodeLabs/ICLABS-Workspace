@@ -4,20 +4,16 @@ import { db } from "../db";
 import { env } from "../env";
 import { appUrl, queueEmail } from "../email";
 import { createGcsStore, createLocalStore, type FileStore } from "../storage";
+import { assignReviewers } from "../reviews/assign";
 import type { ProgressionDeps } from "./progression";
-
-let reviewHook: ProgressionDeps["onAwaitingReview"];
-
-/** M5 registers reviewer assignment here so stage code doesn't depend on review code. */
-export function setAwaitingReviewHook(hook: ProgressionDeps["onAwaitingReview"]) {
-  reviewHook = hook;
-}
 
 export function progressionDeps(): ProgressionDeps {
   return {
     queueEmail,
     appUrl,
-    onAwaitingReview: (a, n) => reviewHook?.(a, n) ?? Promise.resolve(),
+    onAwaitingReview: async (applicationId, nodeId) => {
+      await assignReviewers(db(), applicationId, nodeId);
+    },
   };
 }
 

@@ -131,6 +131,14 @@ export async function unlockNode(
       },
     ]);
   }
+  if (node.type === "review_gate") {
+    // Nothing for the candidate to do: the team reviews what's been submitted so far.
+    await db
+      .update(stageProgress)
+      .set({ state: "submitted", submittedAt: now })
+      .where(eq(stageProgress.id, created.id));
+    await deps.onAwaitingReview?.(pinned.app.id, nodeId);
+  }
   if (node.type === "interview") {
     await notifyAdmins(db, pinned, {
       kind: "interview_needed",
@@ -377,7 +385,7 @@ export async function extendDeadline(db: Db, actorUserId: string, progressId: st
 }
 
 /** Admins, plus hiring managers who manage this role or track. Nobody else sees the name. */
-async function notifyAdmins(
+export async function notifyAdmins(
   db: Db,
   pinned: Pick<PinnedApplication, "app">,
   n: { kind: string; title: string; body?: string; link?: string },

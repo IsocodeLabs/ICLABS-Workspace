@@ -6,6 +6,7 @@ import { getSession } from "@/server/auth/session";
 import { loadActor } from "@/server/auth/actor";
 import { fileForDownload } from "@/server/storage/files";
 import { fileStore } from "@/server/stages/deps";
+import { reviewerUserIds } from "@/server/reviews/queue";
 
 /**
  * Short-lived download link for a candidate file. Allowed for the owner, and for team members
@@ -28,17 +29,17 @@ export async function GET(_req: Request, { params }: { params: Promise<{ fileId:
       .innerJoin(stageProgress, eq(stageProgress.id, submissions.stageProgressId))
       .innerJoin(applications, eq(applications.id, stageProgress.applicationId))
       .where(eq(applications.candidateId, f.ownerCandidateId ?? ""));
-    allowed = rows.some(
-      ({ app, submissionFiles }) =>
-        submissionFiles.includes(fileId) &&
-        can(actor, "read", {
-          type: "submission",
-          candidateId: app.candidateId,
-          roleId: app.roleId,
-          workflowId: app.workflowId,
-          assignedReviewerIds: [],
-        }),
-    );
+    for (const { app, submissionFiles } of rows) {
+      if (!submissionFiles.includes(fileId)) continue;
+      allowed = can(actor, "read", {
+        type: "submission",
+        candidateId: app.candidateId,
+        roleId: app.roleId,
+        workflowId: app.workflowId,
+        assignedReviewerIds: await reviewerUserIds(db(), app.id),
+      });
+      if (allowed) break;
+    }
   }
   if (!allowed) return NextResponse.json({ error: "not_found" }, { status: 404 });
   const result = await fileForDownload(db(), fileStore(), fileId);
