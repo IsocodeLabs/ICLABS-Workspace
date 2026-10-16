@@ -10,6 +10,7 @@ import {
   Home,
   KanbanSquare,
   Layers,
+  Mail,
   UserPlus,
   Users,
   type LucideIcon,
@@ -52,6 +53,7 @@ const ITEMS: Item[] = [
     roles: ["admin", "hiring_manager"],
   },
   { href: "/team/settings/team", label: "Team", icon: Users, roles: ["admin"] },
+  { href: "/team/settings/emails", label: "Email templates", icon: Mail, roles: ["admin"] },
   { href: "/team/audit", label: "Audit log", icon: History, roles: ["admin"] },
 ];
 

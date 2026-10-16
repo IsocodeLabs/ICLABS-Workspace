@@ -4,11 +4,15 @@ import { requireCandidate } from "@/server/auth/session";
 import { ChangePasswordForm } from "./change-password-form";
 
 export default async function ChangePasswordPage() {
-  await requireCandidate({ passwordChangePage: true });
+  const { session } = await requireCandidate({ passwordChangePage: true });
   const t = await getTranslations("changePassword");
+  const firstTime = session.user.mustChangePassword;
   return (
-    <AuthShell title={t("title")} subtitle={t("subtitle")}>
-      <ChangePasswordForm />
+    <AuthShell
+      title={firstTime ? t("title") : t("titleVoluntary")}
+      subtitle={firstTime ? t("subtitle") : t("subtitleVoluntary")}
+    >
+      <ChangePasswordForm currentLabel={firstTime ? t("current") : t("currentVoluntary")} />
     </AuthShell>
   );
 }

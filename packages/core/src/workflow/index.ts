@@ -4,3 +4,4 @@ export * from "./stages";
 export * from "./validate";
 export * from "./diff";
 export * from "./describe";
+export * from "./path";

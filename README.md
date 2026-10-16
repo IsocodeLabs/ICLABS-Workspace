@@ -35,7 +35,7 @@ SEED_ADMIN_EMAIL=you@isocodelabs.com corepack pnpm db:seed   # prints test candi
 corepack pnpm dev                          # http://localhost:3000
 ```
 
-No Docker? `npx pglite-server --port=5544 -m 8` gives an in-memory Postgres; point `DATABASE_URL` at `postgres://postgres:postgres@127.0.0.1:5544/postgres`.
+No Docker? `npx pglite-server --port=5544` gives an in-memory Postgres: point `DATABASE_URL` at `postgres://postgres:postgres@127.0.0.1:5544/postgres` and set `DATABASE_POOL_MAX=1` (it runs a single session).
 
 Checks: `corepack pnpm -r run typecheck`, `corepack pnpm -r run test`, `corepack pnpm format:check`.
 

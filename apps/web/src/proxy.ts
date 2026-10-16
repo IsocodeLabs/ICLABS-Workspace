@@ -9,8 +9,14 @@ import { NextResponse, type NextRequest } from "next/server";
 export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const isTeamArea = pathname.startsWith("/team") && !pathname.startsWith("/team/login");
-  const isCandidateArea =
-    pathname.startsWith("/dashboard") || pathname.startsWith("/change-password");
+  const isCandidateArea = [
+    "/dashboard",
+    "/change-password",
+    "/welcome",
+    "/roles",
+    "/profile",
+    "/notifications",
+  ].some((p) => pathname === p || pathname.startsWith(`${p}/`));
 
   if ((isTeamArea || isCandidateArea) && !getSessionCookie(request)) {
     const login = isTeamArea ? "/team/login" : "/login";

@@ -5,7 +5,7 @@ import { useActionState } from "react";
 import { Alert, Button, Field } from "@/components/ui";
 import { changePasswordAction } from "../actions";
 
-export function ChangePasswordForm() {
+export function ChangePasswordForm({ currentLabel }: { currentLabel: string }) {
   const t = useTranslations("changePassword");
   const common = useTranslations("common");
   const [state, action, pending] = useActionState(changePasswordAction, undefined);
@@ -14,7 +14,7 @@ export function ChangePasswordForm() {
     <form action={action}>
       {state?.error && <Alert>{t(`errors.${state.error}` as "errors.mismatch")}</Alert>}
       <Field
-        label={t("current")}
+        label={currentLabel}
         id="currentPassword"
         type="password"
         autoComplete="current-password"

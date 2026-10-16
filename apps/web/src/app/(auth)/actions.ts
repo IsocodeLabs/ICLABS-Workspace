@@ -39,7 +39,7 @@ export async function signInAction(_prev: FormState, form: FormData): Promise<Fo
     const retryMinutes = result.retryAfterMs ? Math.ceil(result.retryAfterMs / 60_000) : undefined;
     return { error: result.reason, retryMinutes };
   }
-  redirect(result.mustChangePassword ? "/change-password" : "/dashboard");
+  redirect(result.mustChangePassword ? "/change-password" : "/");
 }
 
 const changeSchema = z
@@ -69,7 +69,7 @@ export async function changePasswordAction(_prev: FormState, form: FormData): Pr
     },
   );
   if (!result.ok) return { error: result.reason };
-  redirect("/dashboard");
+  redirect("/welcome");
 }
 
 export async function signOutAction(): Promise<void> {

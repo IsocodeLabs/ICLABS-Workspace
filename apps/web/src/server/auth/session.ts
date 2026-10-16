@@ -3,6 +3,7 @@ import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import type { Actor, TeamRole } from "@iclabs/core";
 import { db } from "../db";
+import { hasConsented } from "../portal";
 import { loadActor } from "./actor";
 import { auth } from "./index";
 
@@ -16,18 +17,23 @@ type Session = NonNullable<Awaited<ReturnType<typeof getSession>>>;
 
 /**
  * Guards every candidate page and action. Until the first-login password change is done,
- * the only reachable page is /change-password.
+ * the only reachable page is /change-password (which also serves voluntary changes later).
  */
 export async function requireCandidate(
-  opts: { passwordChangePage?: boolean } = {},
+  opts: { passwordChangePage?: boolean; consentPage?: boolean } = {},
 ): Promise<{ session: Session; actor: Extract<Actor, { kind: "candidate" }> }> {
   const session = await getSession();
   if (!session) redirect("/login");
   if (session.user.kind !== "candidate") redirect("/team");
   if (session.user.mustChangePassword && !opts.passwordChangePage) redirect("/change-password");
-  if (!session.user.mustChangePassword && opts.passwordChangePage) redirect("/dashboard");
   const actor = await loadActor(db(), session.user.id);
   if (actor?.kind !== "candidate" || !actor.active) redirect("/login");
+  // Privacy notice (DPDP) is accepted once, right after the first password change.
+  if (!opts.passwordChangePage) {
+    const consented = await hasConsented(db(), actor);
+    if (!consented && !opts.consentPage) redirect("/welcome");
+    if (consented && opts.consentPage) redirect("/dashboard");
+  }
   return { session, actor };
 }
 

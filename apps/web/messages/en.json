@@ -33,7 +33,10 @@
       "same_as_previous": "Choose a password different from the temporary one.",
       "breached": "This password has appeared in a data breach. Please choose another.",
       "mismatch": "The new passwords don't match."
-    }
+    },
+    "titleVoluntary": "Change your password",
+    "subtitleVoluntary": "At least 10 characters. You'll stay signed in on this device; other devices are signed out.",
+    "currentVoluntary": "Current password"
   },
   "forgot": {
     "title": "Reset your password",
@@ -66,7 +69,9 @@
       "completed": "Completed",
       "closed_rejected": "Process closed",
       "closed_withdrawn": "Withdrawn"
-    }
+    },
+    "currentStep": "Current step: {step}",
+    "open": "Open"
   },
   "team": {
     "title": "Team workspace",
@@ -82,5 +87,54 @@
   "desktopOnly": {
     "title": "Please switch to a laptop or desktop",
     "body": "Assessments and tasks need a larger screen. Open this page on a laptop or desktop to continue."
+  },
+  "welcome": {
+    "title": "Welcome to the Isocode Workspace",
+    "subtitle": "Before you start, here's how we handle your information.",
+    "points": [
+      "We use what you submit here only to assess your application for the roles you were shortlisted for.",
+      "Your work is reviewed by the Isocode team. Some written answers may be summarised by an AI assistant to help reviewers; a person always makes the decision.",
+      "Timed assessments record when you leave full-screen or switch tabs, so reviewers have context.",
+      "We keep your data for 12 months after the hiring round closes, then delete it. You can ask us to delete it sooner by replying to any of our emails."
+    ],
+    "consent": "I've read this and agree to Isocode Labs processing my information for this hiring process.",
+    "submit": "Continue to my dashboard"
+  },
+  "nav": {
+    "dashboard": "Dashboard",
+    "profile": "Profile",
+    "notifications": "Notifications"
+  },
+  "roleSpace": {
+    "back": "All roles",
+    "timeline": "Your steps",
+    "current": "Now",
+    "done": "Done",
+    "upcoming": "Up next",
+    "closed": "This process is closed. Thank you for taking part.",
+    "empty": "Your steps will appear here."
+  },
+  "profile": {
+    "title": "Your profile",
+    "subtitle": "Keep this up to date. Your email is your login and can't be changed here.",
+    "name": "Full name",
+    "phone": "Phone",
+    "college": "College",
+    "gradYear": "Graduation year",
+    "linkedin": "LinkedIn URL",
+    "github": "GitHub URL",
+    "portfolio": "Portfolio URL",
+    "skills": "Skills (comma separated)",
+    "availableFrom": "Available from",
+    "availableTo": "Available until",
+    "preferredStart": "Preferred start date",
+    "save": "Save profile",
+    "saved": "Saved.",
+    "password": "Change password"
+  },
+  "notifications": {
+    "title": "Notifications",
+    "empty": "Nothing new.",
+    "markRead": "Mark all as read"
   }
 }

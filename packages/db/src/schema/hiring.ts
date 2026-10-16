@@ -113,6 +113,8 @@ export const candidates = pgTable("candidates", {
   resumeFileId: text("resume_file_id"),
   custom: jsonb("custom").$type<Record<string, unknown>>().notNull().default({}),
   emailStatus: emailStatus("email_status").notNull().default("ok"),
+  /** Privacy notice accepted in the portal (DPDP). Null until the candidate accepts. */
+  consentAt: timestamp("consent_at", { withTimezone: true }),
   ...timestamps,
 });
 
