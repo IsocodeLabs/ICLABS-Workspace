@@ -112,7 +112,9 @@
     "done": "Done",
     "upcoming": "Up next",
     "closed": "This process is closed. Thank you for taking part.",
-    "empty": "Your steps will appear here."
+    "empty": "Your steps will appear here.",
+    "open": "Open",
+    "start": "Start"
   },
   "profile": {
     "title": "Your profile",
@@ -136,5 +138,61 @@
     "title": "Notifications",
     "empty": "Nothing new.",
     "markRead": "Mark all as read"
+  },
+  "stage": {
+    "back": "Back to {role}",
+    "due": "Due {date}",
+    "noDeadline": "No fixed deadline",
+    "closed": "This step closed on {date}.",
+    "submitted": "Submitted {date}. Thank you! We'll be in touch about the next step.",
+    "submittedLate": "Submitted after the deadline (within the grace period).",
+    "submit": "Submit",
+    "resubmit": "Submit a new version",
+    "saving": "Saving…",
+    "saved": "Draft saved",
+    "required": "Required",
+    "errors": {
+      "required": "This is required.",
+      "url": "Enter a full link starting with https://",
+      "domain": "Use a link from the allowed site.",
+      "option": "Pick one of the options.",
+      "email": "Enter a valid email.",
+      "number": "Enter a number.",
+      "too_long": "That's too long.",
+      "file": "Upload the file again."
+    },
+    "upload": "Upload a file",
+    "uploading": "Uploading…",
+    "uploaded": "Uploaded: {name}",
+    "replace": "Replace",
+    "fileHint": "PDF, images, ZIP or Office files, up to 25 MB.",
+    "brief": "Brief",
+    "deliverables": "What to submit",
+    "versions": "You can resubmit until the deadline. We review your latest version.",
+    "interview": "We'll email you the interview time and link once it's scheduled.",
+    "assessment": {
+      "intro": "{count} questions · {minutes} minutes",
+      "rules": [
+        "The timer starts when you click Start and keeps running if you leave the page.",
+        "The test runs in full-screen. Leaving full-screen or switching tabs is recorded for reviewers.",
+        "Pasting into answers is turned off.",
+        "Your answers save as you go. When time runs out, what you've answered is submitted automatically."
+      ],
+      "start": "Start the test",
+      "resume": "Continue the test",
+      "timeLeft": "Time left",
+      "question": "Question {n} of {total}",
+      "prev": "Previous",
+      "next": "Next",
+      "finish": "Submit test",
+      "confirmTitle": "Submit your answers?",
+      "confirmBody": "You've answered {answered} of {total}. You can't change answers after submitting.",
+      "fullscreenTitle": "Return to full-screen to continue",
+      "fullscreenBody": "The test needs full-screen. Leaving it is recorded. The timer keeps running.",
+      "fullscreenButton": "Go back to full-screen",
+      "pasteBlocked": "Pasting is turned off for this test.",
+      "done": "Your test was submitted. You can close this page.",
+      "writeAnswer": "Type your answer"
+    }
   }
 }

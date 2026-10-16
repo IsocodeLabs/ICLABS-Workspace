@@ -8,6 +8,7 @@
 import {
   createDb,
   cycles,
+  questions,
   roles,
   teamMembers,
   workflowVersions,
@@ -15,8 +16,9 @@ import {
   applications,
   eq,
 } from "@iclabs/db";
-import { createNode, entryNodeId, emptyWorkflow, type WorkflowConfig } from "@iclabs/core";
+import { createNode, emptyWorkflow, type WorkflowConfig } from "@iclabs/core";
 import { createCandidateAccount } from "../src/server/auth/candidate-auth";
+import { startApplication } from "../src/server/stages/progression";
 
 if (process.env.NODE_ENV === "production") throw new Error("Refusing to seed production");
 const url = process.env.DATABASE_URL;
@@ -35,7 +37,36 @@ const adminMemberId =
   (await db.select().from(teamMembers).where(eq(teamMembers.email, adminEmail)))[0]!.id;
 console.log(`Admin allow-listed: ${adminEmail}`);
 
-/** Details form → take-home task → interview: a small process to try the portal with. */
+// A few approved questions so the starter quiz works out of the box.
+const existing = await db.select({ id: questions.id }).from(questions).limit(1);
+if (existing.length === 0) {
+  const q = (body: string, options: string[], correct: number) => ({
+    type: "mcq" as const,
+    body,
+    options: options.map((text, i) => ({ id: `o${i}`, text })),
+    correct: [`o${correct}`],
+    tags: ["general"],
+    difficulty: "easy" as const,
+    status: "approved" as const,
+  });
+  await db
+    .insert(questions)
+    .values([
+      q("Which of these is a version control system?", ["Git", "Figma", "Excel"], 0),
+      q(
+        "What does an MVP stand for in product work?",
+        ["Most Valuable Player", "Minimum Viable Product", "Maximum Value Plan"],
+        1,
+      ),
+      q(
+        "A customer says the price is too high. What's a good first response?",
+        ["Offer a discount immediately", "Ask what they're comparing it to", "End the call"],
+        1,
+      ),
+    ]);
+}
+
+/** Details form → quick quiz → take-home task → interview: a small process to try the portal. */
 function starter(roleTitle: string): WorkflowConfig {
   const details = createNode("form", { title: "Your details" });
   details.config.fields = [
@@ -45,14 +76,22 @@ function starter(roleTitle: string): WorkflowConfig {
   const task = createNode("task", { title: "Take-home task" });
   task.config.brief = "Describe the task here in the Process Builder.";
   task.reviewers!.pool = [adminMemberId];
+  task.config.deliverables = [
+    { id: "link", kind: "link", label: "Link to your work", required: true },
+    { id: "doc", kind: "file", label: "Supporting document (optional)", required: false },
+  ];
+  const quiz = createNode("assessment", { title: "Quick quiz" });
+  quiz.config.durationMin = 10;
+  quiz.config.questions.draw = [{ tags: ["general"], count: 3 }];
   const interview = createNode("interview", { title: "Founder call" });
   interview.config.interviewerPool = [adminMemberId];
-  const nodes = [details, task, interview];
+  const nodes = [details, quiz, task, interview];
   return {
     ...emptyWorkflow(),
     nodes,
     edges: [
-      { id: "e1", from: details.id, to: task.id, priority: 0, when: { always: true } },
+      { id: "e0", from: details.id, to: quiz.id, priority: 0, when: { always: true } },
+      { id: "e1", from: quiz.id, to: task.id, priority: 0, when: { always: true } },
       {
         id: "e2",
         from: task.id,
@@ -73,10 +112,7 @@ const ROLES = [
   { slug: "pm", title: "PM Intern", seats: 5 },
 ];
 
-const targets: Record<
-  string,
-  { roleId: string; workflowId: string; versionId: string; entry: string | null }
-> = {};
+const targets: Record<string, { roleId: string; workflowId: string; versionId: string }> = {};
 for (const r of ROLES) {
   const [role] = await db.insert(roles).values(r).onConflictDoNothing().returning();
   if (!role) continue;
@@ -105,7 +141,6 @@ for (const r of ROLES) {
     roleId: role.id,
     workflowId: wf!.id,
     versionId: v!.id,
-    entry: entryNodeId(config),
   };
 }
 
@@ -119,13 +154,18 @@ for (const c of testCandidates) {
     for (const slug of c.roles) {
       const t = targets[slug];
       if (!t) continue;
-      await db.insert(applications).values({
-        candidateId,
-        roleId: t.roleId,
-        workflowId: t.workflowId,
-        workflowVersionId: t.versionId,
-        currentNodeId: t.entry,
-        testMode: true,
+      const [app] = await db
+        .insert(applications)
+        .values({
+          candidateId,
+          roleId: t.roleId,
+          workflowId: t.workflowId,
+          workflowVersionId: t.versionId,
+          testMode: true,
+        })
+        .returning();
+      await startApplication(db, { queueEmail: async () => "seed", appUrl: (p) => p }, app!.id, {
+        skipEmail: true,
       });
     }
     console.log(

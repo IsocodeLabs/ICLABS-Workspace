@@ -238,6 +238,8 @@ export async function inviteCandidates(
     queueEmail: (input: EnqueueInput) => Promise<string>;
     loginUrl: string;
     sendAfter?: Date;
+    /** Opens the first stage (progression engine). */
+    onApplicationCreated?: (applicationId: string) => Promise<void>;
   },
 ): Promise<InviteResult> {
   const result: InviteResult = { created: 0, rolesAdded: 0, skipped: 0, applicationIds: [] };
@@ -295,6 +297,7 @@ export async function inviteCandidates(
         })
         .returning({ id: applications.id });
       result.applicationIds.push(app!.id);
+      await deps.onApplicationCreated?.(app!.id);
       titles.push(target!.roleTitle);
       if (existing) result.rolesAdded++;
       await audit(db, {

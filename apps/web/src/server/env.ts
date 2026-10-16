@@ -24,6 +24,12 @@ const schema = z.object({
   SNS_TOPIC_ARN: z.string().optional(),
   /** Shared secret Cloud Scheduler sends to /api/cron/* (Authorization: Bearer …). */
   CRON_SECRET: z.string().min(32),
+  // ─── Candidate files ───
+  STORAGE_DRIVER: z.enum(["gcs", "local"]).default("local"),
+  GCS_BUCKET: z.string().optional(),
+  LOCAL_UPLOAD_DIR: z.string().default(".uploads"),
+  /** "none" marks uploads clean immediately (local only); "clamav" waits for the scanner. */
+  SCAN_MODE: z.enum(["none", "clamav"]).default("none"),
   /** Local only: lets /api/dev/team-login sign in an allow-listed team email without Google. */
   DEV_TEAM_LOGIN: z.stringbool().default(false),
 });

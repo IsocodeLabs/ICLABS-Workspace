@@ -114,13 +114,11 @@ describe("email outbox", () => {
   });
 
   it("uses admin-edited wording when present", async () => {
-    await db
-      .insert(emailTemplates)
-      .values({
-        key: "not_progressing",
-        subject: "About {{role}}",
-        body: "Thanks {{first_name}}.",
-      });
+    await db.insert(emailTemplates).values({
+      key: "not_progressing",
+      subject: "About {{role}}",
+      body: "Thanks {{first_name}}.",
+    });
     await enqueueEmail(db, config, {
       to: "a@b.c",
       templateKey: "not_progressing",

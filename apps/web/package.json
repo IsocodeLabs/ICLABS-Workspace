@@ -13,6 +13,7 @@
   },
   "dependencies": {
     "@aws-sdk/client-sesv2": "3.1152.0",
+    "@google-cloud/storage": "8.4.0",
     "@iclabs/core": "workspace:*",
     "@iclabs/db": "workspace:*",
     "@iclabs/ui": "workspace:*",

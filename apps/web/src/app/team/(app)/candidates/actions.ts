@@ -14,6 +14,8 @@ import {
   type PreviewRow,
 } from "@/server/candidates/invites";
 import { resetEmailTemplate, saveEmailTemplate } from "@/server/candidates/detail";
+import { progressionDeps } from "@/server/stages/deps";
+import { startApplication } from "@/server/stages/progression";
 import type { TemplateKey } from "@/server/email/templates";
 
 export type PreviewLine = {
@@ -59,6 +61,8 @@ export async function inviteCsvAction(csv: string, sendAt?: string) {
     queueEmail,
     loginUrl: appUrl("/login"),
     sendAfter: sendAfter && sendAfter > new Date() ? sendAfter : undefined,
+    onApplicationCreated: (id) =>
+      startApplication(db(), progressionDeps(), id, { skipEmail: true }),
   });
   revalidatePath("/team/candidates");
   return { ok: true as const, ...result };

@@ -72,9 +72,18 @@ export default async function RoleSpacePage({
                 />
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-center gap-2">
-                    <span className="font-semibold">
-                      {i + 1}. {step.title}
-                    </span>
+                    {step.state === "upcoming" ? (
+                      <span className="font-semibold">
+                        {i + 1}. {step.title}
+                      </span>
+                    ) : (
+                      <Link
+                        href={`/roles/${space.applicationId}/stages/${step.id}`}
+                        className="font-semibold text-brand-600 hover:underline"
+                      >
+                        {i + 1}. {step.title}
+                      </Link>
+                    )}
                     <span className="text-xs font-semibold uppercase tracking-wide text-muted">
                       {t(step.state)}
                     </span>
