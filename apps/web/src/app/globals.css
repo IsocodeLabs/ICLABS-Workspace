@@ -7,6 +7,8 @@
   --color-brand-500: var(--brand-500);
   --color-brand-600: var(--brand-600);
   --color-brand-700: var(--brand-700);
+  --color-brand-soft: var(--brand-soft);
+  --color-brand-soft-fg: var(--brand-soft-fg);
   --color-bg: var(--bg);
   --color-surface: var(--surface);
   --color-border: var(--border);

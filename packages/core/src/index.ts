@@ -5,3 +5,8 @@ export * from "./auth/hibp";
 export * from "./auth/rate-limit";
 export * from "./device";
 export * from "./policy/can";
+export * from "./workflow/schema";
+export * from "./workflow/stages";
+export * from "./workflow/validate";
+export * from "./workflow/diff";
+export * from "./workflow/describe";

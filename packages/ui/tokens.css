@@ -18,6 +18,9 @@
   --brand-800: #3d20a5;
   --brand-900: #2f1a7d;
   --accent-gradient: linear-gradient(135deg, #6d4aff 0%, #22d3ee 100%);
+  /* Selected/active backgrounds that stay readable in both themes */
+  --brand-soft: #f3f0ff;
+  --brand-soft-fg: #4a25cc;
 
   /* Neutrals: cool slate tinted toward the brand hue */
   --bg: #f7f7fb;
@@ -65,6 +68,8 @@
     --danger-fg: #f5a3a3;
     --neutral-bg: #23233a;
     --neutral-fg: #c4c4d8;
+    --brand-soft: #2a2150;
+    --brand-soft-fg: #cfc2ff;
   }
 }
 
@@ -82,4 +87,6 @@
   --danger-fg: #f5a3a3;
   --neutral-bg: #23233a;
   --neutral-fg: #c4c4d8;
+  --brand-soft: #2a2150;
+  --brand-soft-fg: #cfc2ff;
 }

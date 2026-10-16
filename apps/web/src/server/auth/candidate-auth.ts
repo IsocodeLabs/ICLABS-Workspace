@@ -4,7 +4,6 @@ import {
   ne,
   sql,
   accounts,
-  auditLog,
   candidates,
   rateLimits,
   sessions,
@@ -24,6 +23,7 @@ import {
   type PasswordIssue,
   type RateLimitRule,
 } from "@iclabs/core";
+import { audit as writeAudit } from "../audit";
 import { burnVerifyTime, hashPassword, verifyPassword } from "./password-hash";
 
 /** Side effects that M3 wires to email. They never receive the password itself. */
@@ -262,15 +262,6 @@ async function hitRateLimit(db: Db, key: string, rule: RateLimitRule, now: Date)
   return result;
 }
 
-async function audit(
-  db: Db,
-  entry: { actorUserId: string | null; action: string; entityId: string },
-): Promise<void> {
-  await db.insert(auditLog).values({
-    actorUserId: entry.actorUserId,
-    actorVia: entry.actorUserId ? "ui" : "system",
-    action: entry.action,
-    entity: "user",
-    entityId: entry.entityId,
-  });
+function audit(db: Db, entry: { actorUserId: string | null; action: string; entityId: string }) {
+  return writeAudit(db, { ...entry, entity: "user" });
 }

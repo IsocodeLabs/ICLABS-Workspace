@@ -8,6 +8,8 @@ const schema = z.object({
   GOOGLE_CLIENT_ID: z.string().min(1),
   GOOGLE_CLIENT_SECRET: z.string().min(1),
   TEAM_EMAIL_DOMAIN: z.string().default("isocodelabs.com"),
+  /** Local only: lets /api/dev/team-login sign in an allow-listed team email without Google. */
+  DEV_TEAM_LOGIN: z.stringbool().default(false),
 });
 
 export type Env = z.infer<typeof schema>;
@@ -18,4 +20,10 @@ let cached: Env | undefined;
 export function env(): Env {
   cached ??= schema.parse(process.env);
   return cached;
+}
+
+/** True only on a developer machine that explicitly opted in. Never in production. */
+export function devTeamLoginEnabled(): boolean {
+  const e = env();
+  return e.NODE_ENV === "development" && e.DEV_TEAM_LOGIN;
 }

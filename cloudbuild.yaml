@@ -1,0 +1,33 @@
+# Cloud Build: build apps/web from the repo root (pnpm workspace), push, deploy to Cloud Run.
+substitutions:
+  _REGION: us-central1
+  _SERVICE: iclabs-workspace
+  _IMAGE: us-central1-docker.pkg.dev/${PROJECT_ID}/cloud-run-source-deploy/iclabs-workspace/${_SERVICE}
+
+steps:
+  - id: Build
+    name: gcr.io/cloud-builders/docker
+    args: ["build", "-f", "apps/web/Dockerfile", "-t", "${_IMAGE}:${COMMIT_SHA}", "."]
+
+  - id: Push
+    name: gcr.io/cloud-builders/docker
+    args: ["push", "${_IMAGE}:${COMMIT_SHA}"]
+
+  - id: Deploy
+    name: gcr.io/google.com/cloudsdktool/cloud-sdk:slim
+    entrypoint: gcloud
+    args:
+      - run
+      - services
+      - update
+      - ${_SERVICE}
+      - --platform=managed
+      - --image=${_IMAGE}:${COMMIT_SHA}
+      - --region=${_REGION}
+      - --quiet
+
+images:
+  - ${_IMAGE}:${COMMIT_SHA}
+
+options:
+  logging: CLOUD_LOGGING_ONLY

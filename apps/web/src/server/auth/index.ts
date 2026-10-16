@@ -1,7 +1,8 @@
 import "server-only";
 import { nextCookies } from "better-auth/next-js";
+import { testUtils } from "better-auth/plugins";
 import { db } from "../db";
-import { env } from "../env";
+import { devTeamLoginEnabled, env } from "../env";
 import { createAuth, type Auth } from "./create-auth";
 import type { AuthNotifier } from "./candidate-auth";
 
@@ -29,7 +30,7 @@ export function auth(): Auth {
         if (e.NODE_ENV === "development") console.info(`[auth] dev reset link: ${url}`);
         else console.warn("[auth] password reset requested; email delivery arrives in M3");
       },
-      plugins: [nextCookies()],
+      plugins: devTeamLoginEnabled() ? [testUtils(), nextCookies()] : [nextCookies()],
     });
   }
   return instance;
