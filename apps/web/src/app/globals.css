@@ -29,11 +29,14 @@
 }
 
 html {
-  color-scheme: light dark;
+  color-scheme: dark;
+  background: var(--bg);
 }
 
 body {
-  background: var(--bg);
+  position: relative;
+  min-height: 100dvh;
+  background: transparent;
   color: var(--text);
   font-family: var(--font-sans);
   font-size: 1rem;
@@ -44,3 +47,99 @@ body {
   outline: 2px solid var(--brand-500);
   outline-offset: 2px;
 }
+
+
+/* ─── Alien-liquid backdrop: slow drifting, morphing blobs behind everything ─────────── */
+.liquid-bg {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  overflow: hidden;
+  background:
+    radial-gradient(120% 90% at 50% 120%, rgb(109 74 255 / 0.18), transparent 60%),
+    var(--bg);
+  pointer-events: none;
+}
+.liquid-bg i {
+  position: absolute;
+  display: block;
+  width: 46vmax;
+  height: 46vmax;
+  border-radius: 42% 58% 63% 37% / 41% 44% 56% 59%;
+  filter: blur(64px) saturate(160%);
+  opacity: 0.78;
+  mix-blend-mode: screen;
+  will-change: transform, border-radius;
+  animation: liquid-morph 22s ease-in-out infinite alternate, liquid-drift 38s ease-in-out infinite alternate;
+}
+.liquid-bg i:nth-child(1) { background: var(--liquid-violet); top: -16%; left: -10%; }
+.liquid-bg i:nth-child(2) { background: var(--liquid-cyan); top: 8%; right: -18%; width: 40vmax; height: 40vmax; opacity: 0.6; animation-duration: 26s, 44s; animation-delay: -6s, -12s; }
+.liquid-bg i:nth-child(3) { background: var(--liquid-acid); bottom: -22%; left: 12%; width: 36vmax; height: 36vmax; opacity: 0.5; animation-duration: 30s, 52s; animation-delay: -11s, -20s; }
+.liquid-bg i:nth-child(4) { background: var(--liquid-magenta); bottom: -12%; right: 6%; width: 32vmax; height: 32vmax; opacity: 0.42; animation-duration: 24s, 40s; animation-delay: -3s, -30s; }
+/* Film grain keeps the gradients from banding and adds a tactile feel. */
+.liquid-bg::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  opacity: 0.07;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
+}
+@keyframes liquid-morph {
+  0% { border-radius: 42% 58% 63% 37% / 41% 44% 56% 59%; }
+  50% { border-radius: 63% 37% 38% 62% / 55% 61% 39% 45%; }
+  100% { border-radius: 36% 64% 52% 48% / 62% 38% 62% 38%; }
+}
+@keyframes liquid-drift {
+  0% { transform: translate3d(0, 0, 0) rotate(0deg) scale(1); }
+  50% { transform: translate3d(6vmax, 5vmax, 0) rotate(40deg) scale(1.12); }
+  100% { transform: translate3d(-5vmax, 9vmax, 0) rotate(-30deg) scale(0.94); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .liquid-bg i { animation: none; }
+}
+
+/* ─── Glass: every surface is frosted, with a faint light edge on top ────────────────── */
+.bg-surface {
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(150%);
+  backdrop-filter: blur(var(--glass-blur)) saturate(150%);
+  box-shadow: var(--shadow-card);
+}
+.bg-neutral-bg {
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+}
+dialog { background: transparent; }
+dialog::backdrop { background: rgb(2 2 8 / 0.62); -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px); }
+/* Dialogs sit on top of everything, so give them a sturdier glass. */
+dialog > div { background: color-mix(in srgb, var(--surface-solid) 82%, transparent); -webkit-backdrop-filter: blur(24px); backdrop-filter: blur(24px); }
+/* Headings get a hint of the liquid gradient. */
+h1.font-display { background: linear-gradient(100deg, #fff 30%, #c9bcff 70%, #8ff3ff); -webkit-background-clip: text; background-clip: text; color: transparent; }
+::selection { background: rgb(109 74 255 / 0.5); }
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-thumb { background: rgb(255 255 255 / 0.14); border-radius: 10px; }
+::-webkit-scrollbar-track { background: transparent; }
+
+/* React Flow chrome (builder): glass minimap and zoom controls. */
+.react-flow__minimap,
+.react-flow__controls {
+  background: var(--surface) !important;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  overflow: hidden;
+  -webkit-backdrop-filter: blur(var(--glass-blur));
+  backdrop-filter: blur(var(--glass-blur));
+}
+.react-flow__minimap-mask { fill: rgb(5 5 11 / 0.55) !important; }
+.react-flow__minimap-node { fill: rgb(255 255 255 / 0.28) !important; }
+.react-flow__controls-button {
+  background: transparent !important;
+  border-color: var(--border) !important;
+  fill: var(--text) !important;
+}
+.react-flow__controls-button:hover { background: rgb(255 255 255 / 0.1) !important; }
+
+/* Brand-coloured text is light on the dark theme so links and eyebrows stay readable (AA). */
+.text-brand-600,
+.text-brand-700,
+.hover\:text-brand-600:hover { color: #c3b6ff; }
+.text-brand-500 { color: #a995ff; }

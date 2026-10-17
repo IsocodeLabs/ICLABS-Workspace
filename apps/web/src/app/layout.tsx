@@ -13,6 +13,12 @@ export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="en">
       <body>
+        <div className="liquid-bg" aria-hidden="true">
+          <i />
+          <i />
+          <i />
+          <i />
+        </div>
         <NextIntlClientProvider>{children}</NextIntlClientProvider>
       </body>
     </html>
