@@ -28,7 +28,20 @@ export {
 /** Any Postgres-backed Drizzle instance (postgres.js in the app, PGlite in tests). */
 export type Db = PgDatabase<PgQueryResultHKT, typeof schema>;
 
+/**
+ * Cloud Run reaches Cloud SQL over a Unix socket: `postgres://user:pass@localhost/db?host=/cloudsql/<instance>`.
+ * postgres.js ignores `host` in the query string (and would send it to the server), so lift it out.
+ */
+export function connectionOptions(url: string): { url: string; host?: string } {
+  const parsed = new URL(url);
+  const host = parsed.searchParams.get("host");
+  if (!host) return { url };
+  parsed.searchParams.delete("host");
+  return { url: parsed.toString(), host };
+}
+
 export function createDb(url: string, opts: { max?: number } = {}): Db {
-  const client = postgres(url, { max: opts.max ?? 10, prepare: false });
+  const conn = connectionOptions(url);
+  const client = postgres(conn.url, { max: opts.max ?? 10, prepare: false, ...(conn.host ? { host: conn.host } : {}) });
   return drizzle(client, { schema });
 }

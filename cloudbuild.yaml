@@ -3,15 +3,46 @@ substitutions:
   _REGION: us-central1
   _SERVICE: iclabs-workspace
   _IMAGE: us-central1-docker.pkg.dev/${PROJECT_ID}/cloud-run-source-deploy/iclabs-workspace/${_SERVICE}
+  _MIGRATE_IMAGE: us-central1-docker.pkg.dev/${PROJECT_ID}/cloud-run-source-deploy/iclabs-workspace/migrate
+  _SQL_INSTANCE: ${PROJECT_ID}:us-central1:isocode-sql
+  _BOOTSTRAP_ADMIN_EMAIL: dex@isocodelabs.com
 
 steps:
   - id: Build
     name: gcr.io/cloud-builders/docker
     args: ["build", "-f", "apps/web/Dockerfile", "-t", "${_IMAGE}:${COMMIT_SHA}", "."]
 
+  - id: Build migrate
+    name: gcr.io/cloud-builders/docker
+    args: ["build", "-f", "apps/web/Dockerfile", "--target", "migrate", "-t", "${_MIGRATE_IMAGE}:${COMMIT_SHA}", "."]
+
   - id: Push
     name: gcr.io/cloud-builders/docker
     args: ["push", "${_IMAGE}:${COMMIT_SHA}"]
+
+  - id: Push migrate
+    name: gcr.io/cloud-builders/docker
+    args: ["push", "${_MIGRATE_IMAGE}:${COMMIT_SHA}"]
+
+  # Schema first, then the new code. Fails the build (and skips the rollout) if migrations fail.
+  - id: Migrate
+    name: gcr.io/google.com/cloudsdktool/cloud-sdk:slim
+    entrypoint: gcloud
+    args:
+      - run
+      - jobs
+      - deploy
+      - workspace-migrate
+      - --image=${_MIGRATE_IMAGE}:${COMMIT_SHA}
+      - --region=${_REGION}
+      - --set-cloudsql-instances=${_SQL_INSTANCE}
+      - --set-secrets=DATABASE_URL=workspace-database-url:latest
+      - --set-env-vars=BOOTSTRAP_ADMIN_EMAIL=${_BOOTSTRAP_ADMIN_EMAIL}
+      - --max-retries=0
+      - --task-timeout=600s
+      - --execute-now
+      - --wait
+      - --quiet
 
   - id: Deploy
     name: gcr.io/google.com/cloudsdktool/cloud-sdk:slim
@@ -28,6 +59,7 @@ steps:
 
 images:
   - ${_IMAGE}:${COMMIT_SHA}
+  - ${_MIGRATE_IMAGE}:${COMMIT_SHA}
 
 # pnpm install + next build of the monorepo can pass the 10-minute default.
 timeout: 1800s
