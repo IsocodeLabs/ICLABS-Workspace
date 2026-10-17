@@ -1,10 +1,11 @@
-# Cloud Build: build apps/web from the repo root (pnpm workspace), push, deploy to Cloud Run.
+# Cloud Build: build apps/web from the repo root (pnpm workspace), push, deploy to Cloud Run (Mumbai).
+# Traffic reaches it through the global load balancer at workspace.isocodelabs.com.
 substitutions:
-  _REGION: us-central1
+  _REGION: asia-south1
   _SERVICE: iclabs-workspace
-  _IMAGE: us-central1-docker.pkg.dev/${PROJECT_ID}/cloud-run-source-deploy/iclabs-workspace/${_SERVICE}
-  _MIGRATE_IMAGE: us-central1-docker.pkg.dev/${PROJECT_ID}/cloud-run-source-deploy/iclabs-workspace/migrate
-  _SQL_INSTANCE: ${PROJECT_ID}:us-central1:isocode-sql
+  _IMAGE: asia-south1-docker.pkg.dev/${PROJECT_ID}/cloud-run-source-deploy/iclabs-workspace/${_SERVICE}
+  _MIGRATE_IMAGE: asia-south1-docker.pkg.dev/${PROJECT_ID}/cloud-run-source-deploy/iclabs-workspace/migrate
+  _SQL_INSTANCE: ${PROJECT_ID}:asia-south1:iclabs-workspace-mum
   # Space-separated (gcloud uses commas between variables).
   _BOOTSTRAP_ADMIN_EMAILS: devansh@isocodelabs.com aryan@isocodelabs.com
   _BOOTSTRAP_DEACTIVATE_EMAILS: dex@isocodelabs.com
@@ -38,7 +39,7 @@ steps:
       - --image=${_MIGRATE_IMAGE}:${COMMIT_SHA}
       - --region=${_REGION}
       - --set-cloudsql-instances=${_SQL_INSTANCE}
-      - --set-secrets=DATABASE_URL=workspace-database-url:latest,BOOTSTRAP_INITIAL_PASSWORD=workspace-bootstrap-password:latest
+      - --set-secrets=DATABASE_URL=workspace-database-url-mum:latest,BOOTSTRAP_INITIAL_PASSWORD=workspace-bootstrap-password:latest
       - --set-env-vars=BOOTSTRAP_ADMIN_EMAILS=${_BOOTSTRAP_ADMIN_EMAILS},BOOTSTRAP_DEACTIVATE_EMAILS=${_BOOTSTRAP_DEACTIVATE_EMAILS}
       - --max-retries=0
       - --task-timeout=600s
