@@ -17,9 +17,9 @@ steps:
     name: gcr.io/google.com/cloudsdktool/cloud-sdk:slim
     entrypoint: gcloud
     args:
+      # "deploy" creates the first revision or updates an existing one, keeping its settings.
       - run
-      - services
-      - update
+      - deploy
       - ${_SERVICE}
       - --platform=managed
       - --image=${_IMAGE}:${COMMIT_SHA}
@@ -29,5 +29,9 @@ steps:
 images:
   - ${_IMAGE}:${COMMIT_SHA}
 
+# pnpm install + next build of the monorepo can pass the 10-minute default.
+timeout: 1800s
+
 options:
   logging: CLOUD_LOGGING_ONLY
+  machineType: E2_HIGHCPU_8

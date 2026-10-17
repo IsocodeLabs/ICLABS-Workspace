@@ -1,5 +1,7 @@
 # Build from the repository root:  docker build -f apps/web/Dockerfile .
 FROM node:24-alpine AS base
+# Non-interactive: corepack fetches the pinned pnpm without prompting.
+ENV COREPACK_ENABLE_DOWNLOAD_PROMPT=0 NEXT_TELEMETRY_DISABLED=1
 RUN corepack enable
 WORKDIR /repo
 
