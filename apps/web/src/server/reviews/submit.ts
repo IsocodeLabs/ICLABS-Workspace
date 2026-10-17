@@ -198,11 +198,14 @@ export async function submissionForAi(db: Db, progressId: string, nodeId: string
   } satisfies AiReviewInput;
 }
 
-/** Asks Claude for suggested scores. Stored once per stage; reviewers see it beside the rubric. */
+/**
+ * Asks Claude for suggested scores. Admins only (like the MCP server); stored once per stage,
+ * and the assigned reviewer sees it beside the rubric as a suggestion.
+ */
 export async function requestAiSuggestion(db: Db, actor: TeamActor, assignmentId: string, ai: AiReviewer) {
-  const loaded = await loadOwnAssignment(db, actor, assignmentId);
-  if (!loaded) return { ok: false as const, error: "This review isn't assigned to you." };
-  const { assignment } = loaded;
+  if (actor.role !== "admin") return { ok: false as const, error: "Only admins can ask Claude." };
+  const [assignment] = await db.select().from(reviewAssignments).where(eq(reviewAssignments.id, assignmentId));
+  if (!assignment) return { ok: false as const, error: "Review not found." };
   const [existing] = await db
     .select()
     .from(reviews)

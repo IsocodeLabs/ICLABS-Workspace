@@ -44,7 +44,7 @@ export async function submitReviewAction(
 }
 
 export async function requestAiAction(assignmentId: string): Promise<ActionResult> {
-  const { actor } = await requireTeam(["admin", "hiring_manager", "reviewer"]);
+  const { actor } = await requireTeam(["admin"]);
   const res = await guarded(() => requestAiSuggestion(db(), actor, assignmentId, aiReviewer()));
   revalidatePath(`/team/reviews/${assignmentId}`);
   return res.ok ? { ok: true } : res;

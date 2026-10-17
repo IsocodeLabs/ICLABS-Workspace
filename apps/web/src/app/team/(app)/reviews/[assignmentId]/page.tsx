@@ -195,7 +195,7 @@ export default async function ReviewPage({ params }: { params: Promise<{ assignm
             canSubmit={view.canSubmit}
             mine={view.mine ? { scores: view.mine.scores, recommendation: view.mine.recommendation, notes: view.mine.notes, totalPct: view.mine.totalPct } : null}
             ai={view.ai ? { scores: view.ai.scores, evidence: view.ai.evidence ?? {}, notes: view.ai.notes, totalPct: view.ai.totalPct } : null}
-            aiEnabled={aiReviewEnabled() && !!view.rubric && view.isMine}
+            aiEnabled={aiReviewEnabled() && !!view.rubric && actor.role === "admin"}
           />
         </div>
       </div>

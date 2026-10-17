@@ -217,15 +217,17 @@ describe("AI suggestions", () => {
         return { ok: true, model: "claude-opus-5-5", suggestion: { scores: { quality: 4, comms: 3 }, evidence: { quality: "README" }, summary: "Solid.", missing: [] } };
       }),
     };
-    expect(await requestAiSuggestion(db, r1, asg!.id, fake)).toMatchObject({ ok: true });
-    expect(await requestAiSuggestion(db, r1, asg!.id, fake)).toMatchObject({ ok: true });
+    // Admins only: the assigned reviewer can't ask Claude.
+    expect(await requestAiSuggestion(db, r1, asg!.id, fake)).toEqual({ ok: false, error: "Only admins can ask Claude." });
+    expect(await requestAiSuggestion(db, admin, asg!.id, fake)).toMatchObject({ ok: true });
+    expect(await requestAiSuggestion(db, admin, asg!.id, fake)).toMatchObject({ ok: true });
     expect(fake.suggest).toHaveBeenCalledTimes(1);
     expect((await getReviewView(db, r1, asg!.id))!.ai).toMatchObject({ kind: "ai_suggestion", totalPct: 72 });
 
     const b = await submitCandidate(track);
     const [asgB] = await assignmentsOf(b);
     const refusing: AiReviewer = { suggest: async () => ({ ok: false, reason: "refused", message: "declined" }) };
-    expect(await requestAiSuggestion(db, r1, asgB!.id, refusing)).toEqual({ ok: false, error: "declined" });
+    expect(await requestAiSuggestion(db, admin, asgB!.id, refusing)).toEqual({ ok: false, error: "declined" });
   });
 
   it("rejects model output that doesn't fit the rubric", () => {

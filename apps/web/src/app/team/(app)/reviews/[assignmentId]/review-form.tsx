@@ -150,7 +150,7 @@ export function ReviewForm({
             <p className="mt-1 text-xs text-muted">A suggestion only. Check it against the submission before you submit.</p>
           </div>
         )}
-        {!ai && aiEnabled && !readOnly && (
+        {!ai && aiEnabled && (
           <Btn
             size="sm"
             variant="secondary"
