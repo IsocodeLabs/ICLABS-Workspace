@@ -15,6 +15,9 @@ const config: NextConfig = {
   transpilePackages: ["@iclabs/core", "@iclabs/db"],
   serverExternalPackages: ["@node-rs/argon2", "@electric-sql/pglite"],
   poweredByHeader: false,
+  compress: true,
+  // Import only the icons/components actually used instead of whole libraries.
+  experimental: { optimizePackageImports: ["lucide-react", "@xyflow/react"] },
   // What next-intl's plugin does, set directly: its plugin loads a native SWC binary that
   // fails on locked-down Windows machines and isn't needed for this alias.
   turbopack: { resolveAlias: { "next-intl/config": "./src/i18n/request.ts" } },

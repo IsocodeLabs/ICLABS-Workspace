@@ -49,56 +49,52 @@ body {
 }
 
 
-/* ─── Black liquid floating on white ─────────────────────────────────────────────────── */
+/* ─── Black liquid on white: drawn by a small GPU shader (see LiquidBackground) ─────────── */
 .liquid-bg {
   position: fixed;
   inset: 0;
   z-index: -1;
-  overflow: hidden;
   background: #ffffff;
   pointer-events: none;
+  contain: strict;
 }
-/* The goo filter merges nearby blobs into one stretching, dripping body of liquid. */
-.liquid-bg .goo { position: absolute; inset: 0; filter: url(#goo); }
-.liquid-bg .goo i {
-  position: absolute;
+.liquid-canvas {
   display: block;
-  border-radius: 50%;
-  background: radial-gradient(circle at 32% 28%, #3a3a46 0%, #0b0b11 38%, #000 100%);
-  will-change: transform;
-  animation: liquid-float 28s ease-in-out infinite alternate;
+  width: 100%;
+  height: 100%;
+  /* Rendered small and upscaled: smooth edges, a fraction of the pixels to shade. */
+  image-rendering: auto;
 }
-.liquid-bg .goo i:nth-child(1) { width: 27vmax; height: 27vmax; top: -12%; left: -8%; }
-.liquid-bg .goo i:nth-child(2) { width: 12vmax; height: 12vmax; top: 18%; left: 20%; animation-duration: 21s; animation-delay: -6s; }
-.liquid-bg .goo i:nth-child(3) { width: 22vmax; height: 22vmax; top: 8%; right: -10%; animation-duration: 33s; animation-delay: -12s; }
-.liquid-bg .goo i:nth-child(4) { width: 8vmax; height: 8vmax; top: 52%; right: 24%; animation-duration: 19s; animation-delay: -3s; }
-.liquid-bg .goo i:nth-child(5) { width: 24vmax; height: 24vmax; bottom: -16%; left: 14%; animation-duration: 36s; animation-delay: -18s; }
-.liquid-bg .goo i:nth-child(6) { width: 10vmax; height: 10vmax; bottom: 10%; right: 6%; animation-duration: 24s; animation-delay: -9s; }
-.liquid-bg .goo i:nth-child(7) { width: 7vmax; height: 7vmax; top: 40%; left: 46%; animation-duration: 17s; animation-delay: -14s; }
-@keyframes liquid-float {
-  0% { transform: translate3d(0, 0, 0) scale(1); }
-  33% { transform: translate3d(9vmax, 6vmax, 0) scale(1.14); }
-  66% { transform: translate3d(-6vmax, 12vmax, 0) scale(0.9); }
-  100% { transform: translate3d(7vmax, -7vmax, 0) scale(1.08); }
-}
-@media (prefers-reduced-motion: reduce) {
-  .liquid-bg .goo i { animation: none; }
+/* No WebGL2: still black shapes on white so the look survives, with zero animation cost. */
+html.liquid-static .liquid-canvas { display: none; }
+html.liquid-static .liquid-bg {
+  background:
+    radial-gradient(ellipse 22% 30% at 8% 6%, #050508 0 58%, transparent 62%),
+    radial-gradient(ellipse 16% 22% at 94% 22%, #050508 0 58%, transparent 62%),
+    radial-gradient(ellipse 20% 16% at 22% 96%, #050508 0 58%, transparent 62%),
+    radial-gradient(ellipse 9% 12% at 70% 82%, #050508 0 58%, transparent 62%),
+    #fff;
 }
 
 /* ─── Glass: every surface is frosted white over the liquid ──────────────────────────── */
 .bg-surface {
-  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(160%);
-  backdrop-filter: blur(var(--glass-blur)) saturate(160%);
+  -webkit-backdrop-filter: blur(var(--glass-blur));
+  backdrop-filter: blur(var(--glass-blur));
   box-shadow: var(--shadow-card);
 }
-.bg-neutral-bg {
-  -webkit-backdrop-filter: blur(10px);
-  backdrop-filter: blur(10px);
+/* Small tinted chips don't need their own blur: it's the most expensive thing to repeat. */
+.bg-neutral-bg { background-color: rgb(0 0 0 / 0.06); }
+/* "Lite" mode (weak or busy machines, reduced motion): solid frosted white, no live blur. */
+html.lite .bg-surface,
+html.lite dialog > div {
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+  background: rgb(255 255 255 / 0.93);
 }
 dialog { background: transparent; }
-dialog::backdrop { background: rgb(255 255 255 / 0.45); -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px); }
+dialog::backdrop { background: rgb(255 255 255 / 0.55); }
 /* Dialogs sit on top of everything, so give them a sturdier glass. */
-dialog > div { background: rgb(255 255 255 / 0.86); -webkit-backdrop-filter: blur(24px); backdrop-filter: blur(24px); }
+dialog > div { background: rgb(255 255 255 / 0.92); -webkit-backdrop-filter: blur(16px); backdrop-filter: blur(16px); }
 /* Page titles sit straight on the backdrop: invert against the liquid so they never vanish. */
 h1.font-display, h1.font-display + p, main > section > h2 { color: #fff; mix-blend-mode: difference; }
 ::selection { background: rgb(0 0 0 / 0.85); color: #fff; }

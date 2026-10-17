@@ -1,12 +1,13 @@
-import ELK from "elkjs/lib/elk.bundled.js";
 import { TERMINALS, type WorkflowConfig } from "@iclabs/core/workflow";
 
-const elk = new ELK();
 
 /** Tidy left-to-right layout of stages and end points. */
 export async function autoLayout(
   config: WorkflowConfig,
 ): Promise<Record<string, { x: number; y: number }>> {
+  // Loaded on first use: the layout engine is large and most visits never click "Tidy".
+  const { default: ELK } = await import("elkjs/lib/elk.bundled.js");
+  const elk = new ELK();
   const usedTerminals = TERMINALS.filter((t) => config.edges.some((e) => e.to === t));
   const graph = await elk.layout({
     id: "root",

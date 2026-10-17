@@ -23,7 +23,7 @@
 
   /* Neutrals: white page, frosted white glass, ink text */
   --bg: #ffffff;
-  --surface: rgb(255 255 255 / 0.8);
+  --surface: rgb(255 255 255 / 0.84);
   --surface-solid: #ffffff;
   --border: rgb(0 0 0 / 0.1);
   --text: #0a0a10;
@@ -51,5 +51,5 @@
   --font-display: "Plus Jakarta Sans", var(--font-sans);
   --radius: 18px;
   --shadow-card: 0 1px 0 rgb(255 255 255 / 0.9) inset, 0 10px 34px rgb(0 0 0 / 0.1);
-  --glass-blur: 18px;
+  --glass-blur: 14px;
 }
