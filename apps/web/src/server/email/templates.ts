@@ -144,7 +144,7 @@ The Isocode Labs hiring team`,
 
 You're invited to the {{round}} for {{role}}.
 
-When: {{when}} (IST)
+When: {{when}}
 Where: {{where}}
 
 A calendar invite is attached. {{instructions}}
@@ -156,7 +156,7 @@ The Isocode Labs hiring team`,
     subject: "Reminder: your {{role}} interview is {{when}}",
     body: `Hi {{first_name}},
 
-A reminder that your {{round}} for {{role}} is at {{when}} (IST).
+A reminder that your {{round}} for {{role}} is at {{when}}.
 
 Where: {{where}}
 

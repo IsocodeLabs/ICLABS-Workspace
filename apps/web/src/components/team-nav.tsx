@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
+  Bot,
   CalendarClock,
   ClipboardCheck,
   FileQuestion,
@@ -54,6 +55,7 @@ const ITEMS: Item[] = [
   },
   { href: "/team/settings/team", label: "Team", icon: Users, roles: ["admin"] },
   { href: "/team/settings/emails", label: "Email templates", icon: Mail, roles: ["admin"] },
+  { href: "/team/settings/claude", label: "Claude access", icon: Bot, roles: ["admin"] },
   { href: "/team/audit", label: "Audit log", icon: History, roles: ["admin"] },
 ];
 

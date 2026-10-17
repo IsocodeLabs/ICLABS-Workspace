@@ -1,12 +1,13 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getTranslations } from "next-intl/server";
-import { ArrowLeft, CalendarClock } from "lucide-react";
+import { ArrowLeft, CalendarClock, Video } from "lucide-react";
 import { formatIst } from "@iclabs/core";
 import { DesktopOnly } from "@/components/desktop-only";
 import { db } from "@/server/db";
 import { requireCandidate } from "@/server/auth/session";
 import { getCandidateStage } from "@/server/stages/candidate";
+import { candidateInterview } from "@/server/interviews";
 import { AssessmentStage } from "./assessment-stage";
 import { FormStage } from "./form-stage";
 import { TaskStage } from "./task-stage";
@@ -22,6 +23,7 @@ export default async function StagePage({
   if (!stage) notFound();
   const t = await getTranslations("stage");
   const node = stage.node;
+  const interview = node.type === "interview" ? await candidateInterview(db(), applicationId, nodeId) : null;
   const submitted =
     stage.state !== "unlocked" && stage.state !== "in_progress" && stage.lastSubmission;
 
@@ -99,8 +101,37 @@ export default async function StagePage({
               started={!!stage.session}
             />
           )}
-          {node.type === "interview" && (
+          {node.type === "interview" && !interview && (
             <p className="rounded-card border border-border bg-surface p-6">{t("interview")}</p>
+          )}
+          {interview?.status === "done" && (
+            <p className="rounded-card border border-border bg-success-bg p-6 text-success-fg">{t("interviewDone")}</p>
+          )}
+          {interview?.status === "scheduled" && (
+            <section className="rounded-card border border-border bg-surface p-6 shadow-card">
+              <h2 className="font-display text-xl font-bold">{t("interviewBooked", { round: interview.roundName })}</h2>
+              <p className="mt-2 text-lg">
+                {t("interviewWhen", {
+                  when: formatIst(interview.startsAt),
+                  minutes: Math.round((interview.endsAt.getTime() - interview.startsAt.getTime()) / 60_000),
+                })}
+              </p>
+              {interview.mode === "meet" && interview.meetUrl && (
+                <a
+                  href={interview.meetUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="mt-4 inline-flex items-center gap-2 rounded-xl bg-brand-500 px-4 py-2 font-semibold text-white hover:bg-brand-600"
+                >
+                  <Video size={18} aria-hidden /> {t("interviewJoin")}
+                </a>
+              )}
+              {interview.mode === "phone" && <p className="mt-3 text-muted">{t("interviewPhone")}</p>}
+              {interview.mode === "in_person" && (
+                <p className="mt-3 text-muted">{t("interviewAt", { place: interview.location ?? "Isocode Labs" })}</p>
+              )}
+              <p className="mt-4 text-sm text-muted">{t("interviewChange")}</p>
+            </section>
           )}
         </div>
       </main>

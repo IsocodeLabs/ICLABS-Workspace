@@ -16,6 +16,9 @@ import {
 import { resetEmailTemplate, saveEmailTemplate } from "@/server/candidates/detail";
 import { progressionDeps } from "@/server/stages/deps";
 import { startApplication } from "@/server/stages/progression";
+import { fileStore } from "@/server/stages/deps";
+import { eraseCandidateOnRequest } from "@/server/retention";
+import { redirect } from "next/navigation";
 import type { TemplateKey } from "@/server/email/templates";
 
 export type PreviewLine = {
@@ -128,4 +131,12 @@ export async function resetEmailTemplateAction(key: TemplateKey) {
   const { actor } = await requireTeam(["admin"]);
   await resetEmailTemplate(db(), actor, key);
   revalidatePath("/team/settings/emails");
+}
+
+/** Data-deletion request: erases the candidate and everything about them. Admins only. */
+export async function eraseCandidateAction(candidateId: string): Promise<void> {
+  const { actor } = await requireTeam(["admin"]);
+  await eraseCandidateOnRequest(db(), fileStore(), actor, candidateId);
+  revalidatePath("/team/candidates");
+  redirect("/team/candidates");
 }

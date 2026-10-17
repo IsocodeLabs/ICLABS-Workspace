@@ -19,8 +19,10 @@ export function proxy(request: NextRequest) {
   ].some((p) => pathname === p || pathname.startsWith(`${p}/`));
 
   if ((isTeamArea || isCandidateArea) && !getSessionCookie(request)) {
-    const login = isTeamArea ? "/team/login" : "/login";
-    return NextResponse.redirect(new URL(login, request.url));
+    const login = new URL(isTeamArea ? "/team/login" : "/login", request.url);
+    // The MCP consent screen needs to come back to itself after Google sign-in.
+    if (pathname.startsWith("/team/oauth/")) login.searchParams.set("next", pathname + request.nextUrl.search);
+    return NextResponse.redirect(login);
   }
 
   const nonce = Buffer.from(crypto.randomUUID()).toString("base64");
@@ -52,7 +54,7 @@ export function proxy(request: NextRequest) {
 export const config = {
   matcher: [
     {
-      source: "/((?!api|_next/static|_next/image|favicon.ico).*)",
+      source: "/((?!api|mcp|\.well-known|_next/static|_next/image|favicon.ico).*)",
       missing: [{ type: "header", key: "next-router-prefetch" }],
     },
   ],

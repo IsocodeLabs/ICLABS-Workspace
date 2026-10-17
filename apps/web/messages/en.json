@@ -170,6 +170,13 @@
     "deliverables": "What to submit",
     "versions": "You can resubmit until the deadline. We review your latest version.",
     "interview": "We'll email you the interview time and link once it's scheduled.",
+    "interviewBooked": "Your {round} is booked",
+    "interviewWhen": "{when} · {minutes} minutes",
+    "interviewJoin": "Join Google Meet",
+    "interviewPhone": "We'll call you on the phone number in your profile.",
+    "interviewAt": "Venue: {place}",
+    "interviewDone": "Thanks for talking to us. We'll be in touch about next steps.",
+    "interviewChange": "Need to change the time? Reply to the invite email and we'll sort it out.",
     "assessment": {
       "intro": "{count} questions · {minutes} minutes",
       "rules": [

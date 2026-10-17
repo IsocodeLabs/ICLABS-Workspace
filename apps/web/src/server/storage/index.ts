@@ -1,5 +1,5 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
-import { mkdir, stat, writeFile, readFile } from "node:fs/promises";
+import { mkdir, readFile, rm, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { Storage as GcsClient } from "@google-cloud/storage";
 
@@ -15,6 +15,8 @@ export interface FileStore {
   ): Promise<{ url: string; headers: Record<string, string> }>;
   downloadUrl(key: string, filename: string, inline: boolean): Promise<string>;
   size(key: string): Promise<number | null>;
+  /** Deletes the object; missing objects are fine. */
+  remove(key: string): Promise<void>;
 }
 
 export const MAX_UPLOAD_BYTES = 25 * 1024 * 1024;
@@ -79,6 +81,9 @@ export function createGcsStore(bucketName: string): FileStore {
       const [meta] = await bucket.file(key).getMetadata();
       return Number(meta.size ?? 0);
     },
+    async remove(key) {
+      await bucket.file(key).delete({ ignoreNotFound: true });
+    },
   };
 }
 
@@ -114,6 +119,9 @@ export function createLocalStore(dir: string, secret: string, baseUrl: string): 
       } catch {
         return null;
       }
+    },
+    async remove(key) {
+      await rm(fileFor(key), { force: true });
     },
   };
 }

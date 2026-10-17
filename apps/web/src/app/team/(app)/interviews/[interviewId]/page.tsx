@@ -30,7 +30,7 @@ export default async function InterviewBriefPage({ params }: { params: Promise<{
             <p className="text-sm font-semibold uppercase tracking-wide text-brand-600">{iv.roundName} · {brief.roleTitle}</p>
             <h1 className="font-display text-3xl font-bold">{c.name}</h1>
             <p className="mt-1 text-muted">
-              {formatIst(iv.startsAt)} IST · {Math.round((iv.endsAt.getTime() - iv.startsAt.getTime()) / 60_000)} min · Panel: {brief.panel.join(", ")}
+              {formatIst(iv.startsAt)} · {Math.round((iv.endsAt.getTime() - iv.startsAt.getTime()) / 60_000)} min · Panel: {brief.panel.join(", ")}
             </p>
           </div>
           <div className="text-right">
@@ -72,25 +72,28 @@ export default async function InterviewBriefPage({ params }: { params: Promise<{
                 </StatusPill>
               </div>
             </div>
-            {s.latest && (
+            {s.fields.length > 0 && (
               <dl className="mt-3 grid gap-x-6 gap-y-2 text-sm md:grid-cols-2">
-                {Object.entries(s.latest.data as Record<string, unknown>)
-                  .filter(([k, v]) => k !== "answers" && k !== "score" && v !== null && v !== "")
-                  .slice(0, 8)
-                  .map(([k, v]) => (
-                    <div key={k} className="min-w-0">
-                      <dt className="text-muted">{k}</dt>
-                      <dd className="truncate">
-                        {isUrl(v) ? (
-                          <a href={v} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-brand-600 underline">
-                            {v} <ExternalLink size={12} aria-hidden />
-                          </a>
+                {s.fields.map((f) => (
+                  <div key={f.label} className="min-w-0">
+                    <dt className="text-muted">{f.label}</dt>
+                    <dd className="break-words">
+                      {f.fileId ? (
+                        brief.canManage ? (
+                          <a href={`/api/files/${f.fileId}`} target="_blank" rel="noopener" className="text-brand-600 underline">{f.value}</a>
                         ) : (
-                          String(Array.isArray(v) ? v.join(", ") : v)
-                        )}
-                      </dd>
-                    </div>
-                  ))}
+                          f.value
+                        )
+                      ) : isUrl(f.value) ? (
+                        <a href={f.value} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-brand-600 underline">
+                          {f.value} <ExternalLink size={12} aria-hidden />
+                        </a>
+                      ) : (
+                        <span className="whitespace-pre-wrap">{f.value}</span>
+                      )}
+                    </dd>
+                  </div>
+                ))}
               </dl>
             )}
             {s.reviews.length > 0 && (

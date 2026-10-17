@@ -2,10 +2,15 @@ import Link from "next/link";
 import { getTranslations } from "next-intl/server";
 import { Card, Page, PageHeader } from "@/components/admin";
 import { requireTeam } from "@/server/auth/session";
+import { db } from "@/server/db";
+import { hiringDashboard } from "@/server/dashboard";
+import { Dashboard } from "./dashboard";
 
 export default async function TeamHome() {
   const { actor, session } = await requireTeam();
   const t = await getTranslations("team");
+  const manages = actor.role === "admin" || actor.role === "hiring_manager";
+  const dashboard = manages ? await hiringDashboard(db(), actor) : null;
   const links =
     actor.role === "admin" || actor.role === "hiring_manager"
       ? [
@@ -40,6 +45,7 @@ export default async function TeamHome() {
           </Link>
         ))}
       </div>
+      {dashboard && <Dashboard data={dashboard} />}
     </Page>
   );
 }

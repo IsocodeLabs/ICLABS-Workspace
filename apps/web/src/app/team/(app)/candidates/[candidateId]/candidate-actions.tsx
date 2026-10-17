@@ -3,13 +3,28 @@
 import { useState, useTransition } from "react";
 import { Btn } from "@/components/admin";
 import { ConfirmDialog } from "@/components/dialog";
-import { resendInviteAction, revokeApplicationAction } from "../actions";
+import { eraseCandidateAction, resendInviteAction, revokeApplicationAction } from "../actions";
 
 export function CandidateActions({ candidateId }: { candidateId: string }) {
   const [open, setOpen] = useState(false);
+  const [erase, setErase] = useState(false);
   const [pending, start] = useTransition();
   return (
     <>
+      <Btn variant="ghost" className="text-danger-fg" disabled={pending} onClick={() => setErase(true)}>
+        Delete all data
+      </Btn>
+      <ConfirmDialog
+        open={erase}
+        title="Delete everything about this candidate?"
+        body="Use this for a data-deletion request. Their account, applications, submissions, files, reviews, interviews and emails are permanently erased. This can't be undone. The audit log keeps a record that it happened, without personal details."
+        confirmLabel="Delete permanently"
+        onCancel={() => setErase(false)}
+        onConfirm={() => {
+          setErase(false);
+          start(() => eraseCandidateAction(candidateId));
+        }}
+      />
       <Btn variant="secondary" disabled={pending} onClick={() => setOpen(true)}>
         Resend invite
       </Btn>

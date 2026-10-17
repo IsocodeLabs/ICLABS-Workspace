@@ -10,6 +10,7 @@ import {
   ne,
   applications,
   candidates,
+  files,
   interviews,
   reviews,
   stageProgress,
@@ -108,8 +109,8 @@ async function emailCandidate(
         ...base,
         update:
           kind === "moved"
-            ? `Your ${iv.roundName} has moved to ${formatIst(iv.startsAt)} (IST). Where: ${place}. The attached invite replaces the old one.`
-            : `Your ${iv.roundName} on ${formatIst(iv.startsAt)} (IST) has been cancelled. We'll be in touch about next steps.`,
+            ? `Your ${iv.roundName} has moved to ${formatIst(iv.startsAt)}. Where: ${place}. The attached invite replaces the old one.`
+            : `Your ${iv.roundName} on ${formatIst(iv.startsAt)} has been cancelled. We'll be in touch about next steps.`,
       },
       attachments,
     });
@@ -409,6 +410,25 @@ export async function sendInterviewReminders(db: Db, deps: InterviewDeps) {
 
 // ─── Reading ─────────────────────────────────────────────────────────────────
 
+type Field = { label: string; value: string; fileId?: string };
+
+/** A submission as label → value pairs, using the stage's own field labels. */
+function labelledFields(node: PinnedApplication["config"]["nodes"][number] | undefined, data: Record<string, unknown> | null, fileNames: Map<string, string>): Field[] {
+  if (!node || !data) return [];
+  const defs =
+    node.type === "task"
+      ? node.config.deliverables.map((d) => ({ id: d.id, label: d.label, file: d.kind === "file" }))
+      : node.type === "form" || node.type === "custom"
+        ? node.config.fields.filter((f) => f.kind !== "section").map((f) => ({ id: f.id, label: f.label, file: f.kind === "file" }))
+        : [];
+  return defs.flatMap((d) => {
+    const v = data[d.id];
+    if (v === null || v === undefined || v === "") return [];
+    const text = Array.isArray(v) ? v.join(", ") : String(v);
+    return d.file ? [{ label: d.label, value: fileNames.get(text) ?? "File", fileId: text }] : [{ label: d.label, value: text }];
+  });
+}
+
 const interviewerUserIds = async (db: Db, memberIds: string[]) =>
   (await panel(db, memberIds)).flatMap((p) => (p.userId ? [p.userId] : []));
 
@@ -503,6 +523,13 @@ export async function getInterviewBrief(db: Db, actor: TeamActor, interviewId: s
   const subs = progress.length
     ? await db.select().from(submissions).where(inArray(submissions.stageProgressId, progress.map((p) => p.id))).orderBy(desc(submissions.version))
     : [];
+  const fileIds = subs.flatMap((x) => x.fileIds);
+  const fileNames = new Map(
+    (fileIds.length ? await db.select({ id: files.id, filename: files.filename }).from(files).where(inArray(files.id, fileIds)) : []).map((f) => [
+      f.id,
+      f.filename,
+    ]),
+  );
   const people = await panel(db, iv.interviewerIds);
   return {
     interview: iv,
@@ -515,7 +542,11 @@ export async function getInterviewBrief(db: Db, actor: TeamActor, interviewId: s
       reviews: reviewRows
         .filter((r) => r.r.stageProgressId === s.progressId)
         .map((r) => ({ reviewer: r.reviewer, pct: r.r.totalPct, recommendation: r.r.recommendation, notes: r.r.notes })),
-      latest: subs.find((x) => x.stageProgressId === s.progressId) ?? null,
+      fields: labelledFields(
+        pinned.config.nodes.find((n) => n.id === s.nodeId),
+        (subs.find((x) => x.stageProgressId === s.progressId)?.data ?? null) as Record<string, unknown> | null,
+        fileNames,
+      ),
     })),
     canManage: can(actor, "write", { type: "workflow", roleId: pinned.app.roleId, workflowId: pinned.app.workflowId }),
   };
@@ -539,4 +570,29 @@ export async function checkAvailability(
   const people = await panel(db, input.interviewerIds);
   const end = new Date(input.startsAt.getTime() + input.durationMin * 60_000);
   return findConflicts(db, deps, people, input.startsAt, end, input.exceptInterviewId);
+}
+
+/** The candidate's own view of a booked interview. Call only after the stage access check. */
+export async function candidateInterview(db: Db, applicationId: string, nodeId: string) {
+  const [iv] = await db
+    .select({
+      roundName: interviews.roundName,
+      startsAt: interviews.startsAt,
+      endsAt: interviews.endsAt,
+      mode: interviews.mode,
+      meetUrl: interviews.meetUrl,
+      location: interviews.location,
+      status: interviews.status,
+    })
+    .from(interviews)
+    .where(
+      and(
+        eq(interviews.applicationId, applicationId),
+        eq(interviews.nodeId, nodeId),
+        inArray(interviews.status, ["scheduled", "done"]),
+      ),
+    )
+    .orderBy(desc(interviews.startsAt))
+    .limit(1);
+  return iv ?? null;
 }

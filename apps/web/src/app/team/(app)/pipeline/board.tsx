@@ -45,7 +45,7 @@ const STATE_LABEL: Record<string, [string, Tone]> = {
 const LANES: { id: string; title: string; match: (c: Card) => boolean; tone: string }[] = [
   { id: "needs_decision", title: "Needs a decision", match: (c) => c.status === "needs_decision", tone: "var(--warning-fg)" },
   { id: "on_hold", title: "On hold", match: (c) => c.status === "on_hold", tone: "var(--neutral-fg)" },
-  { id: "completed", title: "Completed", match: (c) => c.status === "completed" || c.status === "interview_scheduled", tone: "var(--success-fg)" },
+  { id: "completed", title: "Completed", match: (c) => c.status === "completed", tone: "var(--success-fg)" },
   { id: "closed", title: "Not progressing", match: (c) => c.status.startsWith("closed_"), tone: "var(--danger-fg)" },
 ];
 
@@ -57,18 +57,21 @@ export function PipelineBoard({
   nodes,
   cards,
   isAdmin,
+  prepared = null,
 }: {
   workflowId: string;
   nodes: Node[];
   cards: Card[];
   isAdmin: boolean;
+  prepared?: { ids: string[]; action: "advance" | "hold" | "reject"; target: string | null } | null;
 }) {
   const router = useRouter();
   const [view, setView] = useState<"board" | "table">("board");
-  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const known = new Set(cards.map((c) => c.applicationId));
+  const [selected, setSelected] = useState<Set<string>>(new Set(prepared?.ids.filter((id) => known.has(id)) ?? []));
   const [open, setOpen] = useState<Card | null>(null);
   const [rulesFor, setRulesFor] = useState<Node | null>(null);
-  const [bulk, setBulk] = useState<null | "advance" | "hold" | "reject">(null);
+  const [bulk, setBulk] = useState<null | "advance" | "hold" | "reject">(prepared && selected.size ? prepared.action : null);
   const [flash, setFlash] = useState<string | null>(null);
 
   const columns = useMemo(() => {
@@ -77,7 +80,7 @@ export function PipelineBoard({
       title: n.title,
       node: n,
       tone: STAGE_TYPES[n.type].color,
-      cards: cards.filter((c) => c.status === "active" && c.currentNodeId === n.id),
+      cards: cards.filter((c) => (c.status === "active" || c.status === "interview_scheduled") && c.currentNodeId === n.id),
     }));
     const lanes = LANES.map((l) => ({ id: l.id, title: l.title, node: null, tone: l.tone, cards: cards.filter(l.match) }));
     return [...lanes.slice(0, 1), ...stageCols, ...lanes.slice(1)];
@@ -231,6 +234,7 @@ export function PipelineBoard({
           action={bulk}
           ids={[...selected]}
           nodes={nodes}
+          initialTarget={prepared?.target ?? undefined}
           onClose={(msg) => {
             setBulk(null);
             if (msg) {
@@ -246,6 +250,7 @@ export function PipelineBoard({
 }
 
 function StateBadge({ card }: { card: Card }) {
+  if (card.status === "interview_scheduled") return <StatusPill tone="success">Interview booked</StatusPill>;
   if (card.openReviews > 0) return <StatusPill tone="warning">In review</StatusPill>;
   const s = card.stageState ? STATE_LABEL[card.stageState] : null;
   return s ? <StatusPill tone={s[1]}>{s[0]}</StatusPill> : null;
@@ -485,14 +490,16 @@ function BulkDialog({
   action,
   ids,
   nodes,
+  initialTarget,
   onClose,
 }: {
   action: "advance" | "hold" | "reject";
   ids: string[];
   nodes: Node[];
+  initialTarget?: string;
   onClose: (msg?: string) => void;
 }) {
-  const [target, setTarget] = useState(nodes[0]?.id ?? "");
+  const [target, setTarget] = useState(nodes.find((n) => n.id === initialTarget)?.id ?? nodes[0]?.id ?? "");
   const [pending, start] = useTransition();
   const title =
     action === "advance" ? `Move ${ids.length} candidates` : action === "hold" ? `Hold ${ids.length} candidates?` : `${ids.length} candidates not progressing?`;

@@ -4,7 +4,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui";
 import { authClient } from "@/lib/auth-client";
 
-export function GoogleButton({ label }: { label: string }) {
+export function GoogleButton({ label, next = "/team" }: { label: string; next?: string }) {
   const [pending, setPending] = useState(false);
   return (
     <Button
@@ -14,7 +14,7 @@ export function GoogleButton({ label }: { label: string }) {
         setPending(true);
         await authClient.signIn.social({
           provider: "google",
-          callbackURL: "/team",
+          callbackURL: next,
           errorCallbackURL: "/team/login?error=not_allowed",
         });
       }}

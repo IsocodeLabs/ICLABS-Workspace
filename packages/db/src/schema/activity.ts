@@ -9,7 +9,8 @@ export const auditLog = pgTable(
   "audit_log",
   {
     id: id(),
-    actorUserId: text("actor_user_id").references(() => users.id),
+    // Set null if a candidate's account is purged; the entry itself stays.
+    actorUserId: text("actor_user_id").references(() => users.id, { onDelete: "set null" }),
     actorVia: actorVia("actor_via").notNull(),
     action: text("action").notNull(),
     entity: text("entity").notNull(),

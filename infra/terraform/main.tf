@@ -2,7 +2,8 @@
 # Not applied yet. Review, then:
 #   terraform init -backend-config="bucket=<state-bucket>"
 #   terraform plan -var-file=env/staging.tfvars
-# Later milestones add Cloud Tasks, Scheduler, Storage buckets, the load balancer and Cloud Armor.
+# launch.tf adds the uploads bucket, the calendar service account and Cloud Scheduler.
+# Still to add before launch: the load balancer, Cloud Armor and the ClamAV scanner.
 
 terraform {
   required_version = ">= 1.9"
@@ -131,7 +132,18 @@ resource "google_sql_database" "app" {
 
 # ─── Secrets (values are added out of band, never in Terraform state) ─────────
 resource "google_secret_manager_secret" "app" {
-  for_each  = toset(["DATABASE_URL", "BETTER_AUTH_SECRET", "GOOGLE_CLIENT_ID", "GOOGLE_CLIENT_SECRET"])
+  for_each = toset([
+    "DATABASE_URL",
+    "BETTER_AUTH_SECRET",
+    "GOOGLE_CLIENT_ID",
+    "GOOGLE_CLIENT_SECRET",
+    "EMAIL_PAYLOAD_KEY",
+    "CRON_SECRET",
+    "SNS_TOPIC_ARN",
+    "AWS_ACCESS_KEY_ID",
+    "AWS_SECRET_ACCESS_KEY",
+    "CALENDAR_SA_KEY",
+  ])
   secret_id = "workspace-${lower(replace(each.value, "_", "-"))}"
   replication {
     auto {}
@@ -160,9 +172,12 @@ resource "google_cloud_run_v2_service" "web" {
         name  = "BETTER_AUTH_URL"
         value = "https://${var.domain}"
       }
-      env {
-        name  = "TEAM_EMAIL_DOMAIN"
-        value = "isocodelabs.com"
+      dynamic "env" {
+        for_each = local.runtime_env
+        content {
+          name  = env.key
+          value = env.value
+        }
       }
       dynamic "env" {
         for_each = google_secret_manager_secret.app

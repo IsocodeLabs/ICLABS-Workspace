@@ -13,6 +13,7 @@ export {
   eq,
   gt,
   gte,
+  ilike,
   inArray,
   isNotNull,
   isNull,
