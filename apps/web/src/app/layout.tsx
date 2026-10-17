@@ -14,10 +14,23 @@ export default function RootLayout({ children }: { children: ReactNode }) {
     <html lang="en">
       <body>
         <div className="liquid-bg" aria-hidden="true">
-          <i />
-          <i />
-          <i />
-          <i />
+          <svg width="0" height="0" style={{ position: "absolute" }}>
+            <defs>
+              <filter id="goo" x="-20%" y="-20%" width="140%" height="140%">
+                <feGaussianBlur in="SourceGraphic" stdDeviation="22" result="blur" />
+                <feColorMatrix in="blur" mode="matrix" values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 26 -11" />
+              </filter>
+            </defs>
+          </svg>
+          <div className="goo">
+            <i />
+            <i />
+            <i />
+            <i />
+            <i />
+            <i />
+            <i />
+          </div>
         </div>
         <NextIntlClientProvider>{children}</NextIntlClientProvider>
       </body>

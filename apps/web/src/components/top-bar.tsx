@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import Link from "next/link";
 import { getTranslations } from "next-intl/server";
 import { Bell } from "lucide-react";
@@ -8,11 +9,13 @@ export async function TopBar({
   links = [],
   notificationsHref,
   unread = 0,
+  extra,
 }: {
   subtitle?: string;
   links?: { href: string; label: string }[];
   notificationsHref?: string;
   unread?: number;
+  extra?: ReactNode;
 }) {
   const t = await getTranslations("common");
   return (
@@ -40,7 +43,8 @@ export async function TopBar({
             </nav>
           )}
         </div>
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-2">
+          {extra}
           {notificationsHref && (
             <Link
               href={notificationsHref}

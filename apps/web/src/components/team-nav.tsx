@@ -15,79 +15,67 @@ import {
   Mail,
   UserPlus,
   Users,
-  type LucideIcon,
 } from "lucide-react";
 import type { TeamRole } from "@iclabs/core";
+import { NAV_GROUPS, type IconName } from "./team-nav-data";
 
-type Item = { href: string; label: string; icon: LucideIcon; roles?: TeamRole[] };
+const ICONS = { Bot, CalendarClock, ClipboardCheck, FileQuestion, History, Home, KeyRound, KanbanSquare, Layers, Mail, UserPlus, Users } satisfies Record<IconName, unknown>;
 
-const ITEMS: Item[] = [
-  { href: "/team", label: "Home", icon: Home },
-  {
-    href: "/team/roles",
-    label: "Roles & processes",
-    icon: Layers,
-    roles: ["admin", "hiring_manager"],
-  },
-  {
-    href: "/team/candidates",
-    label: "Candidates",
-    icon: UserPlus,
-    roles: ["admin", "hiring_manager"],
-  },
-  {
-    href: "/team/pipeline",
-    label: "Pipeline",
-    icon: KanbanSquare,
-    roles: ["admin", "hiring_manager"],
-  },
-  {
-    href: "/team/reviews",
-    label: "My reviews",
-    icon: ClipboardCheck,
-    roles: ["admin", "hiring_manager", "reviewer"],
-  },
-  { href: "/team/interviews", label: "Interviews", icon: CalendarClock },
-  {
-    href: "/team/questions",
-    label: "Question bank",
-    icon: FileQuestion,
-    roles: ["admin", "hiring_manager"],
-  },
-  { href: "/team/settings/team", label: "Team", icon: Users, roles: ["admin"] },
-  { href: "/team/settings/emails", label: "Email templates", icon: Mail, roles: ["admin"] },
-  { href: "/team/settings/claude", label: "Claude access", icon: Bot, roles: ["admin"] },
-  { href: "/team/audit", label: "Audit log", icon: History, roles: ["admin"] },
-  { href: "/team/account", label: "Your account", icon: KeyRound },
-];
-
-export function TeamNav({ role }: { role: TeamRole }) {
+export function TeamNav({
+  role,
+  counts,
+}: {
+  role: TeamRole;
+  counts: { reviews: number; decisions: number };
+}) {
   const pathname = usePathname();
   return (
-    <nav aria-label="Team" className="w-60 shrink-0 border-r border-border bg-surface px-3 py-4">
-      <ul className="space-y-1">
-        {ITEMS.filter((i) => !i.roles || i.roles.includes(role)).map(
-          ({ href, label, icon: Icon }) => {
-            const active = href === "/team" ? pathname === href : pathname.startsWith(href);
-            return (
-              <li key={href}>
-                <Link
-                  href={href}
-                  aria-current={active ? "page" : undefined}
-                  className={`flex items-center gap-3 rounded-xl px-3 py-2 text-[0.95rem] font-medium transition ${
-                    active
-                      ? "bg-brand-soft text-brand-soft-fg"
-                      : "text-muted hover:bg-neutral-bg hover:text-text"
-                  }`}
-                >
-                  <Icon size={18} strokeWidth={2} aria-hidden />
-                  {label}
-                </Link>
-              </li>
-            );
-          },
-        )}
-      </ul>
+    <nav
+      aria-label="Team"
+      className="sticky top-0 hidden h-dvh w-60 shrink-0 self-start overflow-y-auto border-r border-border bg-surface px-3 py-4 md:block"
+    >
+      {NAV_GROUPS.map((group, gi) => {
+        const items = group.items.filter((i) => !i.roles || i.roles.includes(role));
+        if (items.length === 0) return null;
+        return (
+          <div key={gi} className={gi === 0 ? "" : group.label ? "mt-5" : "mt-5 border-t border-border pt-4"}>
+            {group.label && (
+              <p className="mb-1.5 px-3 text-xs font-bold uppercase tracking-wider text-muted">{group.label}</p>
+            )}
+            <ul className="space-y-0.5">
+              {items.map(({ href, label, icon, badge }) => {
+                const Icon = ICONS[icon];
+                const active = href === "/team" ? pathname === href : pathname.startsWith(href);
+                const n = badge ? counts[badge] : 0;
+                return (
+                  <li key={href}>
+                    <Link
+                      href={href}
+                      aria-current={active ? "page" : undefined}
+                      className={`flex items-center gap-3 rounded-xl px-3 py-2 text-[0.95rem] font-medium transition ${
+                        active ? "bg-brand-500 text-white shadow-card" : "text-text hover:bg-neutral-bg"
+                      }`}
+                    >
+                      <Icon size={18} strokeWidth={2} aria-hidden />
+                      <span className="flex-1">{label}</span>
+                      {n > 0 && (
+                        <span
+                          className={`grid min-w-6 place-items-center rounded-full px-1.5 text-xs font-bold tabular-nums ${
+                            active ? "bg-white text-black" : "bg-brand-500 text-white"
+                          }`}
+                          aria-label={`${n} waiting`}
+                        >
+                          {n > 99 ? "99+" : n}
+                        </span>
+                      )}
+                    </Link>
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+        );
+      })}
     </nav>
   );
 }
