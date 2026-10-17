@@ -7,6 +7,7 @@ import { devTeamLoginEnabled, env } from "../env";
 import { appUrl, queueEmail } from "../email";
 import { createAuth, type Auth } from "./create-auth";
 import type { AuthNotifier } from "./candidate-auth";
+import { teamOtpPlugin } from "./team-otp-plugin";
 
 async function recipient(email: string) {
   const [row] = await db()
@@ -61,7 +62,8 @@ export function auth(): Auth {
           secrets: { reset_url: url },
         });
       },
-      plugins: devTeamLoginEnabled() ? [testUtils(), nextCookies()] : [nextCookies()],
+      // nextCookies stays last so cookies set by other plugins reach the browser.
+      plugins: [teamOtpPlugin(db()), ...(devTeamLoginEnabled() ? [testUtils()] : []), nextCookies()],
     });
   }
   return instance;

@@ -249,7 +249,7 @@ export async function changeCandidatePassword(
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
-async function hitRateLimit(db: Db, key: string, rule: RateLimitRule, now: Date) {
+export async function hitRateLimit(db: Db, key: string, rule: RateLimitRule, now: Date) {
   const [current] = await db.select().from(rateLimits).where(eq(rateLimits.key, key));
   const result = consumeRateLimit(current ?? null, now, rule);
   await db

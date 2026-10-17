@@ -8,7 +8,8 @@ import { NextResponse, type NextRequest } from "next/server";
  */
 export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
-  const isTeamArea = pathname.startsWith("/team") && !pathname.startsWith("/team/login");
+  const isTeamArea =
+    pathname.startsWith("/team") && !pathname.startsWith("/team/login") && !pathname.startsWith("/team/set-password");
   const isCandidateArea = [
     "/dashboard",
     "/change-password",

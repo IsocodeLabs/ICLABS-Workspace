@@ -43,6 +43,11 @@ const schema = z.object({
   /** "global" routes to any region with capacity; set a region to pin data residency. */
   VERTEX_REGION: z.string().default("global"),
   CLAUDE_MODEL: z.string().default("claude-opus-5-5"),
+  /**
+   * Team sign-in asks for a code emailed after the password. Turn off only while no real
+   * email sender is configured (the code would never arrive); Google sign-in is unaffected.
+   */
+  TEAM_LOGIN_OTP: z.stringbool().default(true),
   /** Local only: lets /api/dev/team-login sign in an allow-listed team email without Google. */
   DEV_TEAM_LOGIN: z.stringbool().default(false),
 });

@@ -10,9 +10,9 @@ COPY . .
 RUN pnpm install --frozen-lockfile
 RUN pnpm --filter @iclabs/web build
 
-# Database migrations (+ first-admin bootstrap), run as a Cloud Run job before each rollout.
+# Database migrations, then the team bootstrap; run as a Cloud Run job before each rollout.
 FROM build AS migrate
-CMD ["pnpm", "--filter", "@iclabs/db", "migrate"]
+CMD ["sh", "-c", "pnpm --filter @iclabs/db migrate && pnpm --filter @iclabs/web bootstrap"]
 
 FROM node:24-alpine AS runtime
 ENV NODE_ENV=production PORT=8080 HOSTNAME=0.0.0.0

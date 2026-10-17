@@ -11,7 +11,7 @@
     "password": "Password",
     "submit": "Sign in",
     "forgot": "Forgot your password?",
-    "teamLink": "Isocode team member? Sign in with Google",
+    "teamLink": "Isocode team member? Sign in here",
     "errors": {
       "invalid": "Email or password is incorrect.",
       "locked": "Too many attempts. Your account is locked for {minutes} minutes. We've emailed you in case this wasn't you.",
@@ -53,9 +53,29 @@
   },
   "teamLogin": {
     "title": "Team sign-in",
-    "subtitle": "Sign in with your @isocodelabs.com Google account.",
+    "subtitle": "Sign in with your @isocodelabs.com email and password.",
+    "email": "Work email",
+    "password": "Password",
+    "submit": "Continue",
+    "setPassword": "First time, or forgot your password?",
+    "or": "or",
     "google": "Continue with Google",
-    "notAllowed": "This Google account isn't on the team list. Ask an admin to add you."
+    "notAllowed": "This account isn't on the team list. Ask an admin to add you.",
+    "errors": {
+      "invalid": "Email or password is incorrect.",
+      "locked": "Too many attempts. Your account is locked for {minutes} minutes. We've emailed you in case this wasn't you.",
+      "rate_limited": "Too many attempts. Please wait {minutes} minute(s) and try again."
+    },
+    "codeTitle": "Check your email",
+    "codeSubtitle": "We've sent a 6-digit code to your work email. It expires in 10 minutes.",
+    "code": "Sign-in code",
+    "verify": "Sign in",
+    "startOver": "Didn't get it? Start again",
+    "codeErrors": {
+      "invalid": "That code isn't right.",
+      "invalidLeft": "That code isn't right. {left} tries left.",
+      "expired": "That code has expired or was tried too many times. Start again to get a new one."
+    }
   },
   "dashboard": {
     "title": "Your roles",
@@ -200,6 +220,35 @@
       "pasteBlocked": "Pasting is turned off for this test.",
       "done": "Your test was submitted. You can close this page.",
       "writeAnswer": "Type your answer"
+    }
+  },
+  "teamPassword": {
+    "requestTitle": "Set or reset your password",
+    "requestSubtitle": "Enter your work email. If you're on the team, we'll email you a link to choose a password.",
+    "email": "Work email",
+    "send": "Email me a link",
+    "sent": "If that address is on the team, a link is on its way. It works once and expires in 30 minutes.",
+    "back": "Back to sign-in",
+    "newTitle": "Choose your password",
+    "newSubtitle": "At least 10 characters.",
+    "new": "New password",
+    "confirm": "Confirm new password",
+    "current": "Current password",
+    "save": "Save password",
+    "saved": "Password saved. You can sign in now.",
+    "signIn": "Go to sign-in",
+    "again": "Request a new link",
+    "change": "Change password",
+    "changed": "Password changed. Other devices have been signed out.",
+    "errors": {
+      "email": "Enter a valid email address.",
+      "link": "This link has expired or was already used.",
+      "wrong_current": "Your current password is incorrect.",
+      "too_short": "Use at least 10 characters.",
+      "too_long": "Use at most 128 characters.",
+      "same_as_previous": "Choose a password different from your current one.",
+      "breached": "This password has appeared in a data breach. Please choose another.",
+      "mismatch": "The new passwords don't match."
     }
   }
 }

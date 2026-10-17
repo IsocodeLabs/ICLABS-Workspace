@@ -9,6 +9,7 @@ import {
   FileQuestion,
   History,
   Home,
+  KeyRound,
   KanbanSquare,
   Layers,
   Mail,
@@ -57,6 +58,7 @@ const ITEMS: Item[] = [
   { href: "/team/settings/emails", label: "Email templates", icon: Mail, roles: ["admin"] },
   { href: "/team/settings/claude", label: "Claude access", icon: Bot, roles: ["admin"] },
   { href: "/team/audit", label: "Audit log", icon: History, roles: ["admin"] },
+  { href: "/team/account", label: "Your account", icon: KeyRound },
 ];
 
 export function TeamNav({ role }: { role: TeamRole }) {

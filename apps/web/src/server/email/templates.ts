@@ -10,6 +10,7 @@ export const TEMPLATE_KEYS = [
   "password_changed",
   "account_locked",
   "password_reset",
+  "login_code",
   "stage_unlocked",
   "deadline_reminder",
   "submission_received",
@@ -24,6 +25,7 @@ export type TemplateKey = (typeof TEMPLATE_KEYS)[number];
 export const SECRET_VARS: Record<string, readonly TemplateKey[]> = {
   temp_password: ["welcome"],
   reset_url: ["password_reset"],
+  code: ["login_code"],
 };
 
 export type Template = { subject: string; body: string; description: string };
@@ -90,6 +92,17 @@ Use the button below to choose a new password. The link works once and expires i
 [[button:Choose a new password|{{reset_url}}]]
 
 If you didn't ask for this, you can ignore this email.
+
+The Isocode Labs hiring team`,
+  },
+  login_code: {
+    description: "Team sign-in code (sent after the password)",
+    subject: "Your Isocode Workspace sign-in code",
+    body: `Hi {{first_name}},
+
+Your sign-in code is {{code}}
+
+It works once and expires in 10 minutes. If you didn't just sign in, change your password, since someone else knows it.
 
 The Isocode Labs hiring team`,
   },
