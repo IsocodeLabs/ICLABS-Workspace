@@ -14,6 +14,14 @@ export async function POST(req: Request) {
   const autoSubmitted = await sweepExpiredAssessments(db(), deps);
   const missed = await sweepMissedDeadlines(db(), deps);
   const reminded = await sendDeadlineReminders(db(), deps);
-  const interviewReminders = await sendInterviewReminders(db(), interviewDeps());
+  // Interviews need the calendar set up; until it is, that one step reports an error
+  // instead of stopping deadlines and reminders above.
+  let interviewReminders: number | string;
+  try {
+    interviewReminders = await sendInterviewReminders(db(), interviewDeps());
+  } catch (err) {
+    console.error("interview_reminders_failed", err);
+    interviewReminders = "skipped: calendar not configured";
+  }
   return NextResponse.json({ autoSubmitted, missed, reminded, interviewReminders });
 }
