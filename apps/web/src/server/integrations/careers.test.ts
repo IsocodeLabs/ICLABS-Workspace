@@ -129,6 +129,15 @@ describe("inviting a shortlisted applicant", () => {
     expect(result.status).toBe("invited");
   });
 
+  it("prefers the exact slug over an older role with the same title", async () => {
+    const admin = await teamActor(db, "admin");
+    await createRole(db, admin, { title: "Software Engineering Intern", slug: "old-swe" });
+    const { resolveRoleSlug } = await import("./careers");
+    expect(
+      await resolveRoleSlug(db, { roleKey: "sde", roleTitle: "Software Engineering Intern" }),
+    ).toBe("sde");
+  });
+
   it("explains an unknown role instead of failing silently", async () => {
     const result = await inviteShortlisted(
       db,

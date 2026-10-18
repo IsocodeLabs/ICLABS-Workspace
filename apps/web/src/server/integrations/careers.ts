@@ -1,6 +1,6 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
 import { z } from "zod";
-import { and, asc, eq, ilike, or, roles, teamMembers, users, type Db } from "@iclabs/db";
+import { and, asc, eq, ilike, roles, teamMembers, users, type Db } from "@iclabs/db";
 import type { Actor } from "@iclabs/core";
 import { loadActor } from "../auth/actor";
 import { inviteCandidates, previewInvites } from "../candidates/invites";
@@ -83,16 +83,15 @@ export async function resolveRoleSlug(
 ): Promise<string | null> {
   const mapped = parseRoleMap(roleMap).get(input.roleKey.toLowerCase());
   const key = mapped ?? input.roleKey.toLowerCase();
-  const [match] = await db
+  // an exact slug wins over a title match (an older role can share the title)
+  const [bySlug] = await db.select({ slug: roles.slug }).from(roles).where(eq(roles.slug, key));
+  if (bySlug || mapped || !input.roleTitle) return bySlug?.slug ?? null;
+  const [byTitle] = await db
     .select({ slug: roles.slug })
     .from(roles)
-    .where(
-      input.roleTitle && !mapped
-        ? or(eq(roles.slug, key), ilike(roles.title, input.roleTitle))
-        : eq(roles.slug, key),
-    )
+    .where(ilike(roles.title, input.roleTitle.replace(/[\\%_]/g, "\\$&")))
     .limit(1);
-  return match?.slug ?? null;
+  return byTitle?.slug ?? null;
 }
 
 export function parseRoleMap(raw?: string): Map<string, string> {
