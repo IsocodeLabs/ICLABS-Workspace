@@ -48,6 +48,11 @@ const schema = z.object({
    * email sender is configured (the code would never arrive); Google sign-in is unaffected.
    */
   TEAM_LOGIN_OTP: z.stringbool().default(true),
+  // ─── careers.isocodelabs.com → workspace invites (see server/integrations/careers.ts) ───
+  /** Shared HMAC secret with the careers site. Unset = the invite endpoint is off. */
+  CAREERS_WEBHOOK_SECRET: z.string().min(32).optional(),
+  /** Optional careers roleKey → workspace role slug, e.g. "software-engineering-intern=sde,…". */
+  CAREERS_ROLE_MAP: z.string().optional(),
   /** Local only: lets /api/dev/team-login sign in an allow-listed team email without Google. */
   DEV_TEAM_LOGIN: z.stringbool().default(false),
 });
