@@ -1,9 +1,9 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
 import { z } from "zod";
-import { and, asc, eq, ilike, roles, teamMembers, users, type Db } from "@iclabs/db";
+import { and, asc, eq, ilike, candidates, roles, teamMembers, users, type Db } from "@iclabs/db";
 import type { Actor } from "@iclabs/core";
 import { loadActor } from "../auth/actor";
-import { inviteCandidates, previewInvites } from "../candidates/invites";
+import { inviteCandidates, previewInvites, resendInvite } from "../candidates/invites";
 import type { EnqueueInput } from "../email/outbox";
 
 /**
@@ -65,11 +65,13 @@ export const shortlistSchema = z.object({
   github: optionalUrl,
   /** Email of the founder who shortlisted; used as the inviter when they're on the team. */
   shortlistedBy: z.email().optional().catch(undefined),
+  /** Already invited? Send a fresh welcome email with a new temporary password. */
+  resendLogin: z.boolean().optional().catch(undefined),
 });
 export type ShortlistInput = z.infer<typeof shortlistSchema>;
 
 export type ShortlistResult =
-  | { status: "invited" | "role_added" | "already"; role: string }
+  | { status: "invited" | "role_added" | "already" | "resent"; role: string }
   | { status: "error"; reason: string };
 
 /**
@@ -164,7 +166,21 @@ export async function inviteShortlisted(
     },
   ]);
   const role = row!.target?.roleTitle ?? slug;
-  if (row!.status.kind === "duplicate") return { status: "already", role };
+  if (row!.status.kind === "duplicate") {
+    if (!input.resendLogin) return { status: "already", role };
+    // a new temporary password needs an admin; a hiring manager's resend runs as the first admin
+    const admin = actor.kind === "team" && actor.role === "admin" ? actor : await inviterActor(db);
+    if (!admin || admin.kind !== "team" || admin.role !== "admin")
+      return { status: "error", reason: "No active workspace admin to resend the login." };
+    const [c] = await db
+      .select({ id: candidates.id })
+      .from(candidates)
+      .innerJoin(users, eq(users.id, candidates.userId))
+      .where(eq(users.email, input.email.toLowerCase()));
+    if (!c) return { status: "already", role };
+    await resendInvite(db, admin, c.id, { queueEmail: deps.queueEmail, loginUrl: deps.loginUrl });
+    return { status: "resent", role };
+  }
   if (row!.status.kind === "invalid") return { status: "error", reason: row!.status.reason };
 
   await inviteCandidates(db, actor, [row!], {

@@ -120,6 +120,18 @@ describe("inviting a shortlisted applicant", () => {
     expect(await db.select().from(applications)).toHaveLength(1);
   });
 
+  it("sends a fresh login to someone already invited when asked", async () => {
+    queueEmail.mockClear();
+    expect(await inviteShortlisted(db, input({ resendLogin: true }), deps())).toEqual({
+      status: "resent",
+      role: "SDE Intern",
+    });
+    expect(queueEmail).toHaveBeenCalledWith(
+      expect.objectContaining({ to: "riya@example.com", templateKey: "welcome" }),
+    );
+    expect(await db.select().from(applications)).toHaveLength(1);
+  });
+
   it("uses CAREERS_ROLE_MAP when the title differs", async () => {
     const result = await inviteShortlisted(
       db,
