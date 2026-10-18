@@ -31,7 +31,7 @@ describe("renderEmail", () => {
         first_name: '<img src=x onerror="alert(1)">',
       },
     );
-    expect(out.html).not.toContain("<img");
+    expect(out.html).not.toContain("<img src=x"); // the header image is ours; the injected tag must be escaped
     expect(out.html).toContain("&lt;img");
   });
 

@@ -222,6 +222,8 @@ export type RenderedEmail = { subject: string; text: string; html: string };
 export function renderEmail(
   template: Pick<Template, "subject" | "body">,
   vars: Record<string, string>,
+  /** Where the header image is served from; defaults to production. */
+  opts: { siteUrl?: string } = {},
 ): RenderedEmail {
   const subject = fill(template.subject, vars, (s) => s.replace(/[\r\n]+/g, " ")).trim();
   const paragraphs = template.body.trim().split(/\n\s*\n/);
@@ -236,22 +238,43 @@ export function renderEmail(
       textParts.push(`${label}: ${url}`);
       if (isSafeUrl(url)) {
         htmlParts.push(
-          `<p style="margin:24px 0"><a href="${escapeHtml(url)}" style="display:inline-block;background:#6d4aff;color:#ffffff;text-decoration:none;font-weight:600;padding:12px 22px;border-radius:12px">${escapeHtml(label)}</a></p>`,
+          `<p style="margin:28px 0"><a href="${escapeHtml(url)}" style="display:inline-block;background:#0a0a10;color:#ffffff;text-decoration:none;font-weight:600;font-size:15px;padding:13px 24px;border-radius:12px">${escapeHtml(label)} &rarr;</a></p>`,
         );
       }
       continue;
     }
     textParts.push(fill(p, vars, (s) => s));
+    // A block of "Label: value" lines (login details, interview time…) reads as a details card.
+    const lines = p.trim().split("\n");
+    if (lines.length >= 2 && lines.every((l) => /^[A-Z][\w ]{1,30}: \S/.test(l.trim()))) {
+      const rows = lines.map((l) => {
+        const at = l.indexOf(": ");
+        const key = escapeHtml(l.slice(0, at).trim());
+        const value = fill(escapeHtml(l.slice(at + 2).trim()), vars, (s) => escapeHtml(s));
+        const mono = /password|code/i.test(key);
+        return `<tr><td style="padding:6px 16px 6px 0;color:#4b4b5a;font-size:14px;white-space:nowrap;vertical-align:top">${key}</td><td style="padding:6px 0;font-weight:600;${mono ? "font-family:'SFMono-Regular',Consolas,Menlo,monospace;letter-spacing:0.5px;" : ""}word-break:break-all">${value}</td></tr>`;
+      });
+      htmlParts.push(
+        `<table role="presentation" style="width:100%;border-collapse:separate;margin:4px 0 20px;background:#f4f4f6;border:1px solid rgba(0,0,0,0.08);border-radius:12px"><tr><td style="padding:12px 18px"><table role="presentation" style="border-collapse:collapse">${rows.join("")}</table></td></tr></table>`,
+      );
+      continue;
+    }
     htmlParts.push(
       `<p style="margin:0 0 16px">${fill(escapeHtml(p), vars, (s) => escapeHtml(s)).replaceAll("\n", "<br>")}</p>`,
     );
   }
 
-  const html = `<!doctype html><html><body style="margin:0;background:#f7f7fb;font-family:Inter,Segoe UI,Arial,sans-serif;color:#16162a">
-<div style="max-width:560px;margin:0 auto;padding:32px 20px">
-<div style="height:6px;width:64px;border-radius:6px;background:linear-gradient(135deg,#6d4aff,#22d3ee);margin-bottom:20px"></div>
-<div style="background:#ffffff;border:1px solid #e6e6f0;border-radius:16px;padding:28px;font-size:16px;line-height:1.55">${htmlParts.join("\n")}</div>
-<p style="color:#5b5b72;font-size:13px;margin-top:16px">Isocode Labs · workspace.isocodelabs.com</p>
+  // Workspace look: white paper, ink text, the black-liquid header (rendered from the
+  // workspace background shader, see .claude/skills/workspace-liquid-background), graphite button.
+  const site = (opts.siteUrl ?? "https://workspace.isocodelabs.com").replace(/\/$/, "");
+  const html = `<!doctype html><html><head><meta name="color-scheme" content="light"><meta name="supported-color-schemes" content="light"></head><body style="margin:0;background:#f4f4f6;font-family:Inter,'Segoe UI',Roboto,Arial,sans-serif;color:#0a0a10">
+<div style="max-width:560px;margin:0 auto;padding:32px 16px">
+<div style="background:#ffffff;border:1px solid rgba(0,0,0,0.1);border-radius:18px;overflow:hidden;box-shadow:0 10px 34px rgba(0,0,0,0.08)">
+<img src="${site}/email/liquid-header.png" width="560" alt="Isocode Labs Workspace" style="display:block;width:100%;max-width:560px;height:auto;border:0">
+<div style="height:1px;background:rgba(0,0,0,0.08)"></div>
+<div style="padding:28px 32px 30px;font-size:16px;line-height:1.6">${htmlParts.join("\n")}</div>
+</div>
+<p style="color:#4b4b5a;font-size:13px;line-height:1.5;margin:18px 4px 0">Isocode Labs &middot; <a href="${site}" style="color:#4b4b5a">workspace.isocodelabs.com</a></p>
 </div></body></html>`;
   return { subject, text: textParts.join("\n\n"), html };
 }
