@@ -216,9 +216,7 @@ describe("candidate flow through stages", () => {
       ok: true,
       late: false,
     });
-    expect(queueEmail).toHaveBeenCalledWith(
-      expect.objectContaining({ templateKey: "submission_received" }),
-    );
+    expect(queueEmail).not.toHaveBeenCalled();
     expect(await getCandidateStage(db, actor, app.id, "quiz", clock)).toMatchObject({
       state: "unlocked",
     });
