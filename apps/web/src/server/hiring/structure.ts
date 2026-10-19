@@ -2,6 +2,8 @@ import {
   and,
   desc,
   eq,
+  inArray,
+  applications,
   cycles,
   roles,
   teamMembers,
@@ -31,14 +33,24 @@ export async function listRolesWithCycles(db: Db, actor: Actor) {
     .from(roles)
     .leftJoin(cycles, eq(cycles.roleId, roles.id))
     .orderBy(roles.title, desc(cycles.createdAt));
-  const byRole = new Map<
-    string,
-    { role: typeof roles.$inferSelect; cycles: (typeof cycles.$inferSelect)[] }
-  >();
+  const cycleIds = rows.flatMap((r) => (r.cycle ? [r.cycle.id] : []));
+  const tracks = cycleIds.length
+    ? await db
+        .select({ id: workflows.id, name: workflows.name, cycleId: workflows.cycleId })
+        .from(workflows)
+        .where(inArray(workflows.cycleId, cycleIds))
+        .orderBy(desc(workflows.isDefault), workflows.createdAt)
+    : [];
+  type CycleWithTracks = typeof cycles.$inferSelect & { tracks: { id: string; name: string }[] };
+  const byRole = new Map<string, { role: typeof roles.$inferSelect; cycles: CycleWithTracks[] }>();
   for (const { role, cycle } of rows) {
     if (!can(actor, "read", { type: "workflow", roleId: role.id, workflowId: "" })) continue;
     const entry = byRole.get(role.id) ?? { role, cycles: [] };
-    if (cycle) entry.cycles.push(cycle);
+    if (cycle)
+      entry.cycles.push({
+        ...cycle,
+        tracks: tracks.filter((t) => t.cycleId === cycle.id).map(({ id, name }) => ({ id, name })),
+      });
     byRole.set(role.id, entry);
   }
   return [...byRole.values()];
@@ -65,6 +77,80 @@ export async function createRole(db: Db, actor: Actor, input: RoleInput) {
     after: input,
   });
   return role!;
+}
+
+export async function updateRole(
+  db: Db,
+  actor: Actor,
+  roleId: string,
+  input: Pick<RoleInput, "title" | "slug" | "seats">,
+) {
+  assertCan(actor, "manage", ADMIN_ONLY);
+  const [before] = await db.select().from(roles).where(eq(roles.id, roleId));
+  if (!before) return null;
+  const [role] = await db
+    .update(roles)
+    .set({ title: input.title, slug: input.slug, seats: input.seats ?? null })
+    .where(eq(roles.id, roleId))
+    .returning();
+  await audit(db, {
+    actorUserId: actor.userId,
+    action: "role_updated",
+    entity: "role",
+    entityId: roleId,
+    before: { title: before.title, slug: before.slug, seats: before.seats },
+    after: input,
+  });
+  return role!;
+}
+
+/**
+ * Deletes a role with its rounds, tracks and process versions. Refused once anyone has applied,
+ * so candidate data is never removed this way.
+ */
+export async function deleteRole(
+  db: Db,
+  actor: Actor,
+  roleId: string,
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  assertCan(actor, "manage", ADMIN_ONLY);
+  const [role] = await db.select().from(roles).where(eq(roles.id, roleId));
+  if (!role) return { ok: false, error: "That role no longer exists." };
+  const [applied] = await db
+    .select({ id: applications.id })
+    .from(applications)
+    .where(eq(applications.roleId, roleId))
+    .limit(1);
+  if (applied)
+    return { ok: false, error: "Candidates have applied to this role, so it can't be deleted." };
+
+  await db.transaction(async (tx) => {
+    const cycleIds = (
+      await tx.select({ id: cycles.id }).from(cycles).where(eq(cycles.roleId, roleId))
+    ).map((c) => c.id);
+    const workflowIds = cycleIds.length
+      ? (
+          await tx
+            .select({ id: workflows.id })
+            .from(workflows)
+            .where(inArray(workflows.cycleId, cycleIds))
+        ).map((w) => w.id)
+      : [];
+    if (workflowIds.length) {
+      await tx.delete(workflowVersions).where(inArray(workflowVersions.workflowId, workflowIds));
+      await tx.delete(workflows).where(inArray(workflows.id, workflowIds));
+    }
+    if (cycleIds.length) await tx.delete(cycles).where(inArray(cycles.id, cycleIds));
+    await tx.delete(roles).where(eq(roles.id, roleId));
+  });
+  await audit(db, {
+    actorUserId: actor.userId,
+    action: "role_deleted",
+    entity: "role",
+    entityId: roleId,
+    before: { title: role.title, slug: role.slug },
+  });
+  return { ok: true };
 }
 
 /** A new hiring round with one default track ("Main") and an empty draft process. */

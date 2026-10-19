@@ -1,5 +1,14 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { eq, auditLog, workflowVersions, workflows, type Db } from "@iclabs/db";
+import {
+  eq,
+  applications,
+  auditLog,
+  cycles,
+  roles,
+  workflowVersions,
+  workflows,
+  type Db,
+} from "@iclabs/db";
 import { createTestDb } from "@iclabs/db/testing";
 import { createNode, emptyWorkflow, type WorkflowConfig } from "@iclabs/core";
 import { teamActor } from "../../test/fixtures";
@@ -8,12 +17,15 @@ import {
   cloneCycle,
   createCycle,
   createRole,
+  deleteRole,
   getBuilderData,
   getCycleDetail,
   listRolesWithCycles,
   publishDraft,
   saveDraft,
+  updateRole,
 } from "./structure";
+import { createCandidateAccount } from "../auth/candidate-auth";
 
 let db: Db;
 let close: () => Promise<void>;
@@ -187,5 +199,50 @@ describe("drafts and publishing", () => {
     expect(copy.status).toBe("draft");
     expect(copied.draft?.config.nodes.map((n) => n.title)).toEqual(["Details", "Founder call"]);
     expect(copied.published).toBeNull();
+  });
+});
+
+describe("editing and deleting roles", () => {
+  it("edits a role's title, short name and seats; admins only", async () => {
+    const { admin, role } = await setup();
+    const hm = await teamActor(db, "hiring_manager");
+    await expect(updateRole(db, hm, role.id, { title: "X", slug: "x" })).rejects.toThrow(
+      ForbiddenError,
+    );
+    const slug = `pm-${Date.now()}`;
+    expect(
+      await updateRole(db, admin, role.id, { title: "PM Intern", slug, seats: 3 }),
+    ).toMatchObject({ title: "PM Intern", slug, seats: 3 });
+  });
+
+  it("lists each round's tracks so the process can be opened directly", async () => {
+    const { admin, role, track } = await setup();
+    const listed = (await listRolesWithCycles(db, admin)).find((r) => r.role.id === role.id);
+    expect(listed!.cycles[0]!.tracks).toEqual([{ id: track.id, name: "Main" }]);
+  });
+
+  it("deletes a role with its rounds, tracks and versions; admins only", async () => {
+    const { admin, role, cycle, track } = await setup();
+    const hm = await teamActor(db, "hiring_manager");
+    await expect(deleteRole(db, hm, role.id)).rejects.toThrow(ForbiddenError);
+    expect(await deleteRole(db, admin, role.id)).toEqual({ ok: true });
+    expect(await db.select().from(roles).where(eq(roles.id, role.id))).toEqual([]);
+    expect(await db.select().from(cycles).where(eq(cycles.id, cycle.id))).toEqual([]);
+    expect(await db.select().from(workflows).where(eq(workflows.id, track.id))).toEqual([]);
+    expect(
+      await db.select().from(workflowVersions).where(eq(workflowVersions.workflowId, track.id)),
+    ).toEqual([]);
+    const logged = await db.select().from(auditLog).where(eq(auditLog.entityId, role.id));
+    expect(logged.map((l) => l.action)).toContain("role_deleted");
+  });
+
+  it("refuses to delete a role candidates have applied to", async () => {
+    const { admin, role, track } = await setup();
+    const c = await createCandidateAccount(db, { email: `d${Math.random()}@x.com`, name: "A B" });
+    await db
+      .insert(applications)
+      .values({ candidateId: c.candidateId, roleId: role.id, workflowId: track.id });
+    expect(await deleteRole(db, admin, role.id)).toMatchObject({ ok: false });
+    expect(await db.select().from(roles).where(eq(roles.id, role.id))).toHaveLength(1);
   });
 });

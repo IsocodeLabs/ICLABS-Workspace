@@ -12,7 +12,9 @@ import {
   createCycle,
   createRole,
   createTrack,
+  deleteRole,
   publishDraft,
+  updateRole,
   saveDraft,
   saveWorkflowTemplate,
   setCycleStatus,
@@ -49,6 +51,36 @@ export async function createRoleAction(
   }
   revalidatePath("/team/roles");
   return { ok: true };
+}
+
+export async function updateRoleAction(
+  _: ActionResult | undefined,
+  form: FormData,
+): Promise<ActionResult> {
+  const { actor } = await requireTeam(["admin"]);
+  const roleId = z.string().min(1).max(40).safeParse(form.get("roleId"));
+  const parsed = roleSchema.pick({ title: true, slug: true, seats: true }).safeParse({
+    title: form.get("title"),
+    slug: form.get("slug"),
+    seats: form.get("seats") || undefined,
+  });
+  if (!roleId.success || !parsed.success)
+    return { ok: false, error: parsed.error?.issues[0]?.message ?? "Invalid input" };
+  try {
+    if (!(await updateRole(db(), actor, roleId.data, parsed.data)))
+      return { ok: false, error: "That role no longer exists." };
+  } catch {
+    return { ok: false, error: "A role with that short name already exists." };
+  }
+  revalidatePath("/team/roles");
+  return { ok: true };
+}
+
+export async function deleteRoleAction(roleId: string): Promise<ActionResult> {
+  const { actor } = await requireTeam(["admin"]);
+  const res = await deleteRole(db(), actor, z.string().min(1).max(40).parse(roleId));
+  if (res.ok) revalidatePath("/team/roles");
+  return res;
 }
 
 export async function createCycleAction(
