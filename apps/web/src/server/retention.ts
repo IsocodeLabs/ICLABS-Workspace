@@ -31,9 +31,15 @@ export async function eraseCandidate(
   candidateId: string,
   by: { actorUserId: string | null; via: "ui" | "system"; reason: string },
 ) {
-  const [c] = await db.select({ userId: candidates.userId }).from(candidates).where(eq(candidates.id, candidateId));
+  const [c] = await db
+    .select({ userId: candidates.userId })
+    .from(candidates)
+    .where(eq(candidates.id, candidateId));
   if (!c) return false;
-  const owned = await db.select({ key: files.objectKey }).from(files).where(eq(files.ownerCandidateId, candidateId));
+  const owned = await db
+    .select({ key: files.objectKey })
+    .from(files)
+    .where(eq(files.ownerCandidateId, candidateId));
   for (const f of owned) {
     try {
       await store.remove(f.key);
@@ -42,13 +48,24 @@ export async function eraseCandidate(
       console.error("[retention] file delete failed", err instanceof Error ? err.message : err);
     }
   }
-  const appIds = (await db.select({ id: applications.id }).from(applications).where(eq(applications.candidateId, candidateId))).map(
-    (a) => a.id,
-  );
-  await db
-    .delete(emailMessages)
-    .where(or(eq(emailMessages.userId, c.userId), appIds.length ? inArray(emailMessages.applicationId, appIds) : undefined));
-  await db.delete(users).where(eq(users.id, c.userId));
+  const appIds = (
+    await db
+      .select({ id: applications.id })
+      .from(applications)
+      .where(eq(applications.candidateId, candidateId))
+  ).map((a) => a.id);
+  // All or nothing: a failure must not leave a half-erased candidate behind.
+  await db.transaction(async (tx) => {
+    await tx
+      .delete(emailMessages)
+      .where(
+        or(
+          eq(emailMessages.userId, c.userId),
+          appIds.length ? inArray(emailMessages.applicationId, appIds) : undefined,
+        ),
+      );
+    await tx.delete(users).where(eq(users.id, c.userId));
+  });
   await audit(db, {
     actorUserId: by.actorUserId,
     via: by.via,
@@ -61,7 +78,12 @@ export async function eraseCandidate(
 }
 
 /** Admin action for a data-deletion request (DPDP). */
-export async function eraseCandidateOnRequest(db: Db, store: FileStore, actor: Actor, candidateId: string) {
+export async function eraseCandidateOnRequest(
+  db: Db,
+  store: FileStore,
+  actor: Actor,
+  candidateId: string,
+) {
   assertCan(actor, "manage", { type: "team_settings" });
   return eraseCandidate(db, store, candidateId, {
     actorUserId: actor.kind === "team" ? actor.userId : null,
@@ -89,11 +111,20 @@ export async function purgeExpired(db: Db, store: FileStore, now = new Date()) {
   const expired = new Set(expiredCycles.map((c) => c.id));
 
   const rows = await db
-    .select({ candidateId: candidates.id, createdAt: candidates.createdAt, cycleId: workflows.cycleId })
+    .select({
+      candidateId: candidates.id,
+      createdAt: candidates.createdAt,
+      cycleId: workflows.cycleId,
+    })
     .from(candidates)
     .leftJoin(applications, eq(applications.candidateId, candidates.id))
     .leftJoin(workflows, eq(workflows.id, applications.workflowId))
-    .where(or(lt(candidates.createdAt, cutoff), inArray(workflows.cycleId, expired.size ? [...expired] : [""])));
+    .where(
+      or(
+        lt(candidates.createdAt, cutoff),
+        inArray(workflows.cycleId, expired.size ? [...expired] : [""]),
+      ),
+    );
   const byCandidate = new Map<string, { createdAt: Date; cycles: (string | null)[] }>();
   for (const r of rows) {
     const e = byCandidate.get(r.candidateId) ?? { createdAt: r.createdAt, cycles: [] };
@@ -109,7 +140,15 @@ export async function purgeExpired(db: Db, store: FileStore, now = new Date()) {
       .innerJoin(workflows, eq(workflows.id, applications.workflowId))
       .where(eq(applications.candidateId, candidateId));
     const due = all.length === 0 ? e.createdAt < cutoff : all.every((a) => expired.has(a.cycleId));
-    if (due && (await eraseCandidate(db, store, candidateId, { actorUserId: null, via: "system", reason: "retention" }))) erased++;
+    if (
+      due &&
+      (await eraseCandidate(db, store, candidateId, {
+        actorUserId: null,
+        via: "system",
+        reason: "retention",
+      }))
+    )
+      erased++;
   }
   return erased;
 }

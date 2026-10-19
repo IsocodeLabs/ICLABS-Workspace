@@ -134,9 +134,17 @@ export async function resetEmailTemplateAction(key: TemplateKey) {
 }
 
 /** Data-deletion request: erases the candidate and everything about them. Admins only. */
-export async function eraseCandidateAction(candidateId: string): Promise<void> {
+export async function eraseCandidateAction(
+  candidateId: string,
+): Promise<{ ok: false; error: string } | undefined> {
   const { actor } = await requireTeam(["admin"]);
-  await eraseCandidateOnRequest(db(), fileStore(), actor, candidateId);
+  try {
+    await eraseCandidateOnRequest(db(), fileStore(), actor, candidateId);
+  } catch (err) {
+    console.error("[erase] candidate", candidateId, err);
+    const reason = err instanceof Error ? err.message : String(err);
+    return { ok: false, error: `Couldn't delete this candidate: ${reason}` };
+  }
   revalidatePath("/team/candidates");
   redirect("/team/candidates");
 }

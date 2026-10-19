@@ -8,12 +8,19 @@ import { eraseCandidateAction, resendInviteAction, revokeApplicationAction } fro
 export function CandidateActions({ candidateId }: { candidateId: string }) {
   const [open, setOpen] = useState(false);
   const [erase, setErase] = useState(false);
+  const [eraseError, setEraseError] = useState<string | null>(null);
   const [pending, start] = useTransition();
   return (
     <>
-      <Btn variant="ghost" className="text-danger-fg" disabled={pending} onClick={() => setErase(true)}>
+      <Btn
+        variant="ghost"
+        className="text-danger-fg"
+        disabled={pending}
+        onClick={() => setErase(true)}
+      >
         Delete all data
       </Btn>
+      {eraseError && <p className="text-sm text-danger-fg">{eraseError}</p>}
       <ConfirmDialog
         open={erase}
         title="Delete everything about this candidate?"
@@ -22,7 +29,11 @@ export function CandidateActions({ candidateId }: { candidateId: string }) {
         onCancel={() => setErase(false)}
         onConfirm={() => {
           setErase(false);
-          start(() => eraseCandidateAction(candidateId));
+          setEraseError(null);
+          start(async () => {
+            const res = await eraseCandidateAction(candidateId);
+            if (res && !res.ok) setEraseError(res.error);
+          });
         }}
       />
       <Btn variant="secondary" disabled={pending} onClick={() => setOpen(true)}>
