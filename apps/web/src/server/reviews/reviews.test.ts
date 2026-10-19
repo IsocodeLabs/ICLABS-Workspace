@@ -105,7 +105,7 @@ async function submitCandidate(track: Awaited<ReturnType<typeof newTrack>>, name
       workflowVersionId: track.wf.publishedVersionId,
     })
     .returning();
-  await startApplication(db, deps, app!.id, { skipEmail: true });
+  await startApplication(db, deps, app!.id);
   const actor = (await loadActor(db, c.userId)) as Extract<Awaited<ReturnType<typeof loadActor>>, { kind: "candidate" }>;
   expect(await submitTask(db, deps, actor, app!.id, "task", { repo: "https://github.com/a/b" })).toMatchObject({ ok: true });
   return app!.id;

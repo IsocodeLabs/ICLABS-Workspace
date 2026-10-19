@@ -75,13 +75,15 @@ export function isReviewable(
   return false;
 }
 
-/** Opens a stage for the candidate (idempotent) and tells them about it. */
+/**
+ * Opens a stage for the candidate (idempotent) and tells them in the app. No email: candidates
+ * only get the invite, a receipt for each submission, and interview emails.
+ */
 export async function unlockNode(
   db: Db,
   deps: ProgressionDeps,
   pinned: PinnedApplication,
   nodeId: string,
-  opts: { skipEmail?: boolean } = {},
 ) {
   const node = pinned.config.nodes.find((n) => n.id === nodeId);
   if (!node) throw new Error(`node ${nodeId} not in pinned version`);
@@ -106,21 +108,6 @@ export async function unlockNode(
   if (!created) return;
 
   if (node.visibility === "candidate" && node.type !== "interview") {
-    const stageUrl = deps.appUrl(`/roles/${pinned.app.id}/stages/${nodeId}`);
-    if (!opts.skipEmail)
-      await deps.queueEmail({
-        to: pinned.email,
-        templateKey: "stage_unlocked",
-        userId: pinned.userId,
-        applicationId: pinned.app.id,
-        vars: {
-          first_name: firstName(pinned.candidateName),
-          role: pinned.roleTitle,
-          stage: node.title,
-          deadline: dueAt ? formatIst(dueAt) : "no fixed deadline",
-          stage_url: stageUrl,
-        },
-      });
     await notify(db, [
       {
         userId: pinned.userId,
@@ -149,15 +136,10 @@ export async function unlockNode(
 }
 
 /** First stage of a freshly invited application. The invite email already points there. */
-export async function startApplication(
-  db: Db,
-  deps: ProgressionDeps,
-  applicationId: string,
-  opts: { skipEmail?: boolean } = {},
-) {
+export async function startApplication(db: Db, deps: ProgressionDeps, applicationId: string) {
   const pinned = await loadPinned(db, applicationId);
   const entry = entryNodeId(pinned.config);
-  if (entry) await unlockNode(db, deps, pinned, entry, opts);
+  if (entry) await unlockNode(db, deps, pinned, entry);
 }
 
 /**
@@ -315,7 +297,7 @@ export async function sweepMissedDeadlines(db: Db, deps: ProgressionDeps) {
   return missed.length;
 }
 
-/** 24 hours before a deadline, one reminder per stage. */
+/** 24 hours before a deadline, one in-app reminder per stage (no email). */
 export async function sendDeadlineReminders(db: Db, deps: ProgressionDeps) {
   const now = deps.now?.() ?? new Date();
   const soon = new Date(now.getTime() + 24 * 3600_000);
@@ -340,19 +322,15 @@ export async function sendDeadlineReminders(db: Db, deps: ProgressionDeps) {
     const pinned = await loadPinned(db, r.applicationId);
     const node = pinned.config.nodes.find((n) => n.id === r.nodeId);
     if (!node || node.visibility !== "candidate") continue;
-    await deps.queueEmail({
-      to: pinned.email,
-      templateKey: "deadline_reminder",
-      userId: pinned.userId,
-      applicationId: r.applicationId,
-      vars: {
-        first_name: firstName(pinned.candidateName),
-        role: pinned.roleTitle,
-        stage: node.title,
-        deadline: formatIst(r.dueAt!),
-        stage_url: deps.appUrl(`/roles/${r.applicationId}/stages/${r.nodeId}`),
+    await notify(db, [
+      {
+        userId: pinned.userId,
+        kind: "deadline_reminder",
+        title: `${pinned.roleTitle}: ${node.title} is due soon`,
+        body: `Due ${formatIst(r.dueAt!)}`,
+        link: `/roles/${r.applicationId}/stages/${r.nodeId}`,
       },
-    });
+    ]);
     await db.update(stageProgress).set({ reminderSentAt: now }).where(eq(stageProgress.id, r.id));
   }
   return due.length;

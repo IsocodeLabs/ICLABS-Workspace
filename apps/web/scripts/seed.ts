@@ -164,9 +164,7 @@ for (const c of testCandidates) {
           testMode: true,
         })
         .returning();
-      await startApplication(db, { queueEmail: async () => "seed", appUrl: (p) => p }, app!.id, {
-        skipEmail: true,
-      });
+      await startApplication(db, { queueEmail: async () => "seed", appUrl: (p) => p }, app!.id);
     }
     console.log(
       `Candidate ${c.email} → temp password ${tempPassword} (roles: ${c.roles.join(", ")})`,

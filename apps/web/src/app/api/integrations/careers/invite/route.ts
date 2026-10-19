@@ -60,7 +60,7 @@ export async function POST(req: Request) {
         queueEmail,
         loginUrl: appUrl("/login"),
         onApplicationCreated: (id) =>
-          startApplication(db(), progressionDeps(), id, { skipEmail: true }),
+          startApplication(db(), progressionDeps(), id),
       });
       results.push({ applicationId: parsed.data.applicationId, ...result });
     } catch (err) {

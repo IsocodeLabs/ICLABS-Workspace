@@ -5,6 +5,7 @@ import {
   applications,
   assessmentSessions,
   files,
+  notifications,
   questions,
   stageProgress,
   submissions,
@@ -173,17 +174,17 @@ async function newApplication(config: WorkflowConfig = process()) {
 }
 
 describe("candidate flow through stages", () => {
-  it("unlocks the first stage with a deadline and an email on start", async () => {
+  it("unlocks the first stage with a deadline and an in-app note, but no email", async () => {
     const { app, actor } = await newApplication();
     const view = await getCandidateStage(db, actor, app.id, "form", clock);
     expect(view).toMatchObject({ state: "unlocked", canSubmit: true, node: { title: "Details" } });
     expect(view!.dueAt).toBeInstanceOf(Date);
-    expect(queueEmail).toHaveBeenCalledWith(
-      expect.objectContaining({
-        templateKey: "stage_unlocked",
-        vars: expect.objectContaining({ stage: "Details" }),
-      }),
-    );
+    expect(queueEmail).not.toHaveBeenCalled();
+    const notes = await db
+      .select()
+      .from(notifications)
+      .where(eq(notifications.userId, actor.userId));
+    expect(notes.map((n) => n.kind)).toContain("stage_unlocked");
   });
 
   it("hides stages that aren't unlocked and other candidates' stages", async () => {
@@ -428,6 +429,15 @@ Details ${n}`,
     clock = new Date(p!.dueAt!.getTime() - 3 * 3600_000);
     expect(await sendDeadlineReminders(db, deps)).toBeGreaterThanOrEqual(1);
     expect(await sendDeadlineReminders(db, deps)).toBe(0);
+    // The reminder is in the app only; candidates get no reminder email.
+    expect(queueEmail).not.toHaveBeenCalledWith(
+      expect.objectContaining({ templateKey: "deadline_reminder" }),
+    );
+    const notes = await db
+      .select()
+      .from(notifications)
+      .where(eq(notifications.userId, actor.userId));
+    expect(notes.map((n) => n.kind)).toContain("deadline_reminder");
 
     clock = new Date(p!.graceUntil!.getTime() + 60_000);
     expect(await sweepMissedDeadlines(db, deps)).toBeGreaterThanOrEqual(1);

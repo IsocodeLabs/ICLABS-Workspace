@@ -57,7 +57,7 @@ async function newCandidate(name = "Asha Rao") {
     .insert(applications)
     .values({ candidateId: c.candidateId, roleId: track.roleId, workflowId: track.wf.id, workflowVersionId: track.wf.publishedVersionId })
     .returning();
-  await startApplication(db, deps(), app!.id, { skipEmail: true });
+  await startApplication(db, deps(), app!.id);
   return app!.id;
 }
 
