@@ -28,6 +28,7 @@ import {
   Redo2,
   Rocket,
   Save,
+  Trash2,
   Undo2,
 } from "lucide-react";
 import {
@@ -108,6 +109,10 @@ function BuilderInner({
   const [rfNodes, setRfNodes] = useState<Node[]>([]);
   const [outline, setOutline] = useState(false);
   const [pendingDelete, setPendingDelete] = useState<typeof selection>(null);
+  // Trash bin: drop a stage on it, or click it to delete the current selection.
+  const trashRef = useRef<HTMLButtonElement>(null);
+  const [dragging, setDragging] = useState(false);
+  const [overTrash, setOverTrash] = useState(false);
   const [publishOpen, setPublishOpen] = useState(false);
   const colorMode = useColorMode();
 
@@ -239,13 +244,48 @@ function BuilderInner({
     [readOnly],
   );
 
+  const isOverTrash = (e: MouseEvent | TouchEvent) => {
+    const p = "changedTouches" in e ? e.changedTouches[0] : e;
+    const r = trashRef.current?.getBoundingClientRect();
+    return (
+      !!p &&
+      !!r &&
+      p.clientX >= r.left &&
+      p.clientX <= r.right &&
+      p.clientY >= r.top &&
+      p.clientY <= r.bottom
+    );
+  };
+
+  const onNodeDrag = useCallback(
+    (e: MouseEvent | TouchEvent, node: Node) => {
+      if (readOnly || isTerminal(node.id)) return;
+      setDragging(true);
+      setOverTrash(isOverTrash(e));
+    },
+    [readOnly],
+  );
+
   const onNodeDragStop = useCallback(
-    (_: unknown, node: Node) => {
+    (e: MouseEvent | TouchEvent, node: Node) => {
+      setDragging(false);
+      setOverTrash(false);
       if (readOnly) return;
+      if (!isTerminal(node.id) && isOverTrash(e)) {
+        // Snap back to where it was; the confirm dialog decides whether it goes.
+        const back = config.layout[node.id];
+        if (back)
+          setRfNodes((nds) => nds.map((n) => (n.id === node.id ? { ...n, position: back } : n)));
+        setPendingDelete({ kind: "node", id: node.id });
+        return;
+      }
       actions.move({ [node.id]: node.position });
     },
-    [actions, readOnly],
+    [actions, readOnly, config.layout],
   );
+
+  const deletable =
+    !!selection && !(selection.kind === "node" && isTerminal(selection.id)) && !readOnly;
 
   const onDrop = (e: DragEvent) => {
     e.preventDefault();
@@ -371,6 +411,7 @@ function BuilderInner({
               nodeTypes={nodeTypes}
               edgeTypes={edgeTypes}
               onNodesChange={onNodesChange}
+              onNodeDrag={onNodeDrag}
               onNodeDragStop={onNodeDragStop}
               onConnect={(c) =>
                 !readOnly && c.source && c.target && actions.connect(c.source, c.target)
@@ -409,6 +450,34 @@ function BuilderInner({
                 }
               />
             </ReactFlow>
+          )}
+          {!readOnly && !outline && (
+            <button
+              ref={trashRef}
+              type="button"
+              aria-label={deletable ? "Delete selected" : "Trash: drag a stage here to delete it"}
+              title={deletable ? "Delete selected" : "Drag a stage here to delete it"}
+              disabled={!deletable && !dragging}
+              onClick={() => deletable && setPendingDelete(selection)}
+              className={`absolute bottom-4 left-1/2 z-10 flex -translate-x-1/2 items-center gap-2 rounded-xl border px-4 py-2.5 text-sm font-semibold shadow-card transition ${
+                overTrash
+                  ? "scale-110 border-danger-fg bg-danger-bg text-danger-fg"
+                  : dragging
+                    ? "border-danger-fg bg-surface text-danger-fg"
+                    : deletable
+                      ? "border-border bg-surface text-text hover:border-danger-fg hover:text-danger-fg"
+                      : "border-border bg-surface text-muted"
+              }`}
+            >
+              <Trash2 size={18} aria-hidden />
+              {overTrash
+                ? "Release to delete"
+                : dragging
+                  ? "Drop here to delete"
+                  : deletable
+                    ? "Delete selected"
+                    : "Trash"}
+            </button>
           )}
           {config.nodes.length === 0 && !outline && (
             <EmptyCanvas readOnly={readOnly} onStart={(type) => addAtCenter(type)} />
