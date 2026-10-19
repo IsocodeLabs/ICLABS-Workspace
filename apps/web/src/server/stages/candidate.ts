@@ -350,8 +350,20 @@ async function afterSubmit(
     hasWrittenAnswers?: boolean;
   },
 ) {
-  // No receipt email: the page confirms the submission, and candidates are only emailed for the
-  // invite and their interview.
+  // Only a task (the take-home) gets a receipt email; other steps are confirmed on the page.
+  if (s.node.type === "task") {
+    await deps.queueEmail({
+      to: s.pinned.email,
+      templateKey: "submission_received",
+      userId: s.pinned.userId,
+      applicationId: s.pinned.app.id,
+      vars: {
+        first_name: s.pinned.candidateName.split(" ")[0]!,
+        role: s.pinned.roleTitle,
+        stage: s.node.title,
+      },
+    });
+  }
   await completeSubmission(db, deps, s.pinned.app.id, s.node, {
     answers: ctx.answers,
     autoScorePct: ctx.autoScorePct,

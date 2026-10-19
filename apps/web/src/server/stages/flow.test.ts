@@ -314,19 +314,28 @@ describe("candidate flow through stages", () => {
     expect(
       await submitTask(db, deps, actor, app.id, "task", { repo: "https://gitlab.com/me/x" }),
     ).toMatchObject({ ok: false, fieldErrors: { repo: "domain" } });
+    queueEmail.mockClear();
     expect(
       await submitTask(db, deps, actor, app.id, "task", { repo: "https://github.com/me/x" }),
     ).toEqual({ ok: true, late: false });
     expect(onAwaitingReview).toHaveBeenCalledWith(app.id, "task");
+    expect(queueEmail).toHaveBeenCalledWith(
+      expect.objectContaining({
+        templateKey: "submission_received",
+        vars: expect.objectContaining({ stage: "Take-home" }),
+      }),
+    );
 
     const [progress] = await db
       .select()
       .from(stageProgress)
       .where(and(eq(stageProgress.applicationId, app.id), eq(stageProgress.nodeId, "task")));
     clock = new Date(progress!.dueAt!.getTime() + 30 * 60_000); // inside the 2h grace window
+    queueEmail.mockClear();
     expect(
       await submitTask(db, deps, actor, app.id, "task", { repo: "https://github.com/me/x2" }),
     ).toEqual({ ok: true, late: true });
+    expect(queueEmail).not.toHaveBeenCalled();
     const versions = await db
       .select()
       .from(submissions)
