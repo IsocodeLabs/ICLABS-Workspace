@@ -70,6 +70,11 @@ export type BuilderProps = {
 };
 
 const nodeTypes = { stage: StageNode, terminal: TerminalNode };
+const ENDING_LABELS = {
+  NEEDS_DECISION: "Needs decision",
+  END_REJECT: "Not progressing",
+  END_COMPLETE: "Completed",
+} as const;
 const edgeTypes = { rule: RuleEdge };
 type SaveState = "saved" | "saving" | "unsaved" | "conflict" | "error";
 
@@ -111,8 +116,33 @@ function BuilderInner({
   const [pendingDelete, setPendingDelete] = useState<typeof selection>(null);
   // Trash bin: drop a stage on it, or click it to delete the current selection.
   const trashRef = useRef<HTMLButtonElement>(null);
-  const [dragging, setDragging] = useState(false);
+  // What is being dragged decides what the bin does with it.
+  const [dragging, setDragging] = useState<"stage" | "ending" | "ending_in_use" | null>(null);
   const [overTrash, setOverTrash] = useState(false);
+  const [binNotice, setBinNotice] = useState<{ text: string; undo?: () => void } | null>(null);
+  // Endings nobody routes to can be put away; they come back as soon as a path leads to them.
+  const hiddenKey = `builder:hidden-endings:${workflow.id}`;
+  const [hiddenEnds, setHiddenEnds] = useState<string[]>([]);
+  useEffect(() => {
+    try {
+      setHiddenEnds(JSON.parse(localStorage.getItem(hiddenKey) ?? "[]") as string[]);
+    } catch {
+      // Storage blocked or unreadable: show every ending.
+    }
+  }, [hiddenKey]);
+  const saveHiddenEnds = (next: string[]) => {
+    setHiddenEnds(next);
+    try {
+      localStorage.setItem(hiddenKey, JSON.stringify(next));
+    } catch {
+      // Storage blocked: the ending stays hidden for this visit only.
+    }
+  };
+  useEffect(() => {
+    if (!binNotice) return;
+    const timer = setTimeout(() => setBinNotice(null), 6000);
+    return () => clearTimeout(timer);
+  }, [binNotice]);
   const [publishOpen, setPublishOpen] = useState(false);
   const colorMode = useColorMode();
 
@@ -180,8 +210,11 @@ function BuilderInner({
     [config.nodes],
   );
   const usedTerminals = useMemo(
-    () => TERMINALS.filter((t) => config.edges.some((e) => e.to === t) || !readOnly),
-    [config.edges, readOnly],
+    () =>
+      TERMINALS.filter(
+        (t) => config.edges.some((e) => e.to === t) || (!readOnly && !hiddenEnds.includes(t)),
+      ),
+    [config.edges, readOnly, hiddenEnds],
   );
 
   const desiredNodes: Node[] = useMemo(
@@ -257,32 +290,51 @@ function BuilderInner({
     );
   };
 
-  const onNodeDrag = useCallback(
-    (e: MouseEvent | TouchEvent, node: Node) => {
-      if (readOnly || isTerminal(node.id)) return;
-      setDragging(true);
-      setOverTrash(isOverTrash(e));
-    },
-    [readOnly],
-  );
+  const dragKind = (id: string) =>
+    !isTerminal(id)
+      ? ("stage" as const)
+      : config.edges.some((e) => e.to === id)
+        ? ("ending_in_use" as const)
+        : ("ending" as const);
 
-  const onNodeDragStop = useCallback(
-    (e: MouseEvent | TouchEvent, node: Node) => {
-      setDragging(false);
-      setOverTrash(false);
-      if (readOnly) return;
-      if (!isTerminal(node.id) && isOverTrash(e)) {
-        // Snap back to where it was; the confirm dialog decides whether it goes.
-        const back = config.layout[node.id];
-        if (back)
-          setRfNodes((nds) => nds.map((n) => (n.id === node.id ? { ...n, position: back } : n)));
-        setPendingDelete({ kind: "node", id: node.id });
-        return;
-      }
+  const onNodeDrag = (e: MouseEvent | TouchEvent, node: Node) => {
+    if (readOnly) return;
+    setDragging(dragKind(node.id));
+    setOverTrash(isOverTrash(e));
+  };
+
+  const onNodeDragStop = (e: MouseEvent | TouchEvent, node: Node) => {
+    const kind = dragKind(node.id);
+    setDragging(null);
+    setOverTrash(false);
+    if (readOnly) return;
+    if (!isOverTrash(e)) {
       actions.move({ [node.id]: node.position });
-    },
-    [actions, readOnly, config.layout],
-  );
+      return;
+    }
+    const back = config.layout[node.id] ?? terminalDefaults[node.id];
+    const snapBack = () =>
+      back &&
+      setRfNodes((nds) => nds.map((n) => (n.id === node.id ? { ...n, position: back } : n)));
+    if (kind === "stage") {
+      actions.removeNode(node.id);
+      setBinNotice({
+        text: `Deleted "${titles[node.id] ?? "stage"}"`,
+        undo: () => useBuilder.temporal.getState().undo(),
+      });
+    } else if (kind === "ending") {
+      saveHiddenEnds([...hiddenEnds, node.id]);
+      setBinNotice({
+        text: `Hid "${ENDING_LABELS[node.id as keyof typeof ENDING_LABELS]}"`,
+        undo: () => saveHiddenEnds(hiddenEnds.filter((t) => t !== node.id)),
+      });
+    } else {
+      snapBack();
+      setBinNotice({
+        text: `Paths still lead to "${ENDING_LABELS[node.id as keyof typeof ENDING_LABELS]}". Delete those paths first.`,
+      });
+    }
+  };
 
   const deletable =
     !!selection && !(selection.kind === "node" && isTerminal(selection.id)) && !readOnly;
@@ -459,25 +511,53 @@ function BuilderInner({
               title={deletable ? "Delete selected" : "Drag a stage here to delete it"}
               disabled={!deletable && !dragging}
               onClick={() => deletable && setPendingDelete(selection)}
-              className={`absolute bottom-4 left-1/2 z-10 flex -translate-x-1/2 items-center gap-2 rounded-xl border px-4 py-2.5 text-sm font-semibold shadow-card transition ${
-                overTrash
-                  ? "scale-110 border-danger-fg bg-danger-bg text-danger-fg"
-                  : dragging
-                    ? "border-danger-fg bg-surface text-danger-fg"
-                    : deletable
-                      ? "border-border bg-surface text-text hover:border-danger-fg hover:text-danger-fg"
-                      : "border-border bg-surface text-muted"
+              className={`absolute bottom-6 left-1/2 z-10 flex -translate-x-1/2 select-none items-center gap-2 rounded-xl border px-4 py-2.5 text-sm font-semibold shadow-card transition ${
+                overTrash && dragging === "ending_in_use"
+                  ? "border-warning-fg bg-warning-bg text-warning-fg"
+                  : overTrash
+                    ? "scale-110 border-danger-fg bg-danger-bg text-danger-fg"
+                    : dragging
+                      ? "border-danger-fg bg-surface text-danger-fg"
+                      : deletable
+                        ? "border-border bg-surface text-text hover:border-danger-fg hover:text-danger-fg"
+                        : "border-border bg-surface text-muted"
               }`}
             >
               <Trash2 size={18} aria-hidden />
               {overTrash
-                ? "Release to delete"
+                ? dragging === "stage"
+                  ? "Release to delete"
+                  : dragging === "ending"
+                    ? "Release to hide"
+                    : "Delete its paths first"
                 : dragging
-                  ? "Drop here to delete"
+                  ? dragging === "stage"
+                    ? "Drop here to delete"
+                    : "Drop here to hide"
                   : deletable
                     ? "Delete selected"
                     : "Trash"}
             </button>
+          )}
+          {binNotice && !outline && (
+            <div
+              role="status"
+              className="absolute bottom-20 left-1/2 z-10 flex -translate-x-1/2 items-center gap-3 rounded-xl border border-border bg-surface px-4 py-2 text-sm shadow-card"
+            >
+              <span>{binNotice.text}</span>
+              {binNotice.undo && (
+                <button
+                  type="button"
+                  className="font-semibold underline"
+                  onClick={() => {
+                    binNotice.undo!();
+                    setBinNotice(null);
+                  }}
+                >
+                  Undo
+                </button>
+              )}
+            </div>
           )}
           {config.nodes.length === 0 && !outline && (
             <EmptyCanvas readOnly={readOnly} onStart={(type) => addAtCenter(type)} />
