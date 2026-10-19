@@ -19,7 +19,20 @@ export function progressionDeps(): ProgressionDeps {
 
 let store: FileStore | undefined;
 
+/**
+ * The configured file store, set up on first real use. Work that touches no files (erasing a
+ * candidate who never uploaded, the retention sweep) keeps working even if storage is misconfigured.
+ */
 export function fileStore(): FileStore {
+  return {
+    uploadUrl: async (...a) => configuredStore().uploadUrl(...a),
+    downloadUrl: async (...a) => configuredStore().downloadUrl(...a),
+    size: async (...a) => configuredStore().size(...a),
+    remove: async (...a) => configuredStore().remove(...a),
+  };
+}
+
+function configuredStore(): FileStore {
   if (!store) {
     const e = env();
     if (e.STORAGE_DRIVER === "gcs") {
