@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import Link from "next/link";
 import { getTranslations } from "next-intl/server";
 import { Bell } from "lucide-react";
+import { LogoMark } from "./logo";
 import { signOutAction } from "@/app/(auth)/actions";
 
 export async function TopBar({
@@ -22,11 +23,7 @@ export async function TopBar({
     <header className="border-b border-border bg-surface">
       <div className="flex items-center justify-between gap-4 px-4 py-3">
         <div className="flex min-w-0 items-center gap-3">
-          <span
-            className="h-6 w-6 shrink-0 rounded-lg"
-            style={{ background: "var(--accent-gradient)" }}
-            aria-hidden
-          />
+          <LogoMark size={26} className="shrink-0 text-text" />
           <span className="font-display font-bold">{t("appName")}</span>
           {subtitle && <span className="truncate text-sm text-muted">{subtitle}</span>}
           {links.length > 0 && (
