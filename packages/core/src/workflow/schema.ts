@@ -86,6 +86,10 @@ const formFieldSchema = z.object({
   options: z.array(z.string().max(200)).max(50).optional(),
   /** For url fields: allowed hostnames, e.g. ["github.com"]. */
   allowedDomains: z.array(z.string().max(100)).max(10).optional(),
+  /** For text fields: most words allowed, checked on the server too. */
+  maxWords: z.number().int().min(1).max(5000).optional(),
+  /** For text fields: pasting and dropping text in are blocked, so the answer is typed. */
+  noPaste: z.boolean().optional(),
 });
 export type FormField = z.infer<typeof formFieldSchema>;
 

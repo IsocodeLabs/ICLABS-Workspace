@@ -1,6 +1,10 @@
 import type { FormField } from "../workflow/schema";
 
-export type FieldError = "required" | "url" | "domain" | "option" | "email" | "number" | "too_long";
+export type FieldError =
+  "required" | "url" | "domain" | "option" | "email" | "number" | "too_long" | "too_many_words";
+
+/** Words as a person would count them: runs of non-space characters. */
+export const wordCount = (text: string) => text.trim().split(/\s+/).filter(Boolean).length;
 
 /** Server-side check of a form/custom-step submission. Returns field id → problem. */
 export function validateFormAnswers(
@@ -20,6 +24,7 @@ export function validateFormAnswers(
     }
     const v = values[0]!;
     if (values.some((x) => x.length > 10_000)) errors[f.id] = "too_long";
+    else if (f.maxWords && wordCount(v) > f.maxWords) errors[f.id] = "too_many_words";
     else if (f.kind === "url") {
       let url: URL | null = null;
       try {

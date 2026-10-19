@@ -770,6 +770,30 @@ function FieldsEditor({
                 }
               />
             )}
+            {(f.kind === "long_text" || f.kind === "short_text") && (
+              <div className="mt-2 grid grid-cols-[1fr_auto] items-center gap-2">
+                <Input
+                  aria-label="Word limit"
+                  type="number"
+                  min={1}
+                  placeholder="Word limit (optional)"
+                  value={f.maxWords ?? ""}
+                  onChange={(e) =>
+                    patch(i, {
+                      maxWords: e.target.value ? Math.max(1, num(e.target.value, 1)) : undefined,
+                    })
+                  }
+                />
+                <label className="flex items-center gap-1.5 text-xs font-medium">
+                  <input
+                    type="checkbox"
+                    checked={!!f.noPaste}
+                    onChange={(e) => patch(i, { noPaste: e.target.checked || undefined })}
+                  />{" "}
+                  Block pasting
+                </label>
+              </div>
+            )}
             <div className="mt-2 flex items-center gap-1">
               <label className="mr-auto flex items-center gap-1.5 text-xs font-medium">
                 <input

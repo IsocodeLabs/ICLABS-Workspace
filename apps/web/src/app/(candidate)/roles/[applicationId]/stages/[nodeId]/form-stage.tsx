@@ -3,7 +3,7 @@
 import { useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
-import type { FormField } from "@iclabs/core/workflow";
+import { wordCount, type FormField } from "@iclabs/core/workflow";
 import { Alert, Button } from "@/components/ui";
 import { saveDraftAction, submitFormAction } from "@/app/(candidate)/stage-actions";
 import { FileUpload } from "./file-upload";
@@ -34,6 +34,7 @@ export function FormStage({
   const [message, setMessage] = useState<string | null>(null);
   const [saving, setSaving] = useState<"idle" | "saving" | "saved">("idle");
   const [busy, setBusy] = useState(false);
+  const [pasteBlocked, setPasteBlocked] = useState<string | null>(null);
   const lastSaved = useRef(JSON.stringify(draft));
 
   // Autosave so a dropped connection or closed tab doesn't lose work (only real changes).
@@ -50,6 +51,21 @@ export function FormStage({
   }, [answers, applicationId, nodeId]);
 
   const set = (id: string, v: Answers[string]) => setAnswers((a) => ({ ...a, [id]: v }));
+
+  // Fields marked "type it yourself" refuse pasted or dropped text.
+  const typeOnly = (f: FormField) =>
+    f.noPaste
+      ? {
+          onPaste: (e: React.ClipboardEvent) => {
+            e.preventDefault();
+            setPasteBlocked(f.id);
+          },
+          onDrop: (e: React.DragEvent) => {
+            e.preventDefault();
+            setPasteBlocked(f.id);
+          },
+        }
+      : {};
 
   async function submit() {
     setBusy(true);
@@ -98,12 +114,14 @@ export function FormStage({
               )}
             </label>
             {f.help && <p className="mb-1.5 text-sm text-muted">{f.help}</p>}
+            {f.noPaste && <p className="mb-1.5 text-sm text-muted">{t("typeOnly")}</p>}
             {f.kind === "long_text" ? (
               <textarea
                 id={id}
                 className={`${input} min-h-32`}
                 value={(v as string) ?? ""}
                 onChange={(e) => set(f.id, e.target.value)}
+                {...typeOnly(f)}
               />
             ) : f.kind === "single_choice" ? (
               <div className="space-y-1.5" role="radiogroup" aria-labelledby={id}>
@@ -163,11 +181,23 @@ export function FormStage({
                 }
                 value={(v as string) ?? ""}
                 onChange={(e) => set(f.id, e.target.value)}
+                {...(f.kind === "short_text" ? typeOnly(f) : {})}
               />
+            )}
+            {f.maxWords && (f.kind === "long_text" || f.kind === "short_text") && (
+              <p
+                className={`mt-1 text-right text-sm ${wordCount(String(v ?? "")) > f.maxWords ? "text-danger-fg" : "text-muted"}`}
+                aria-live="polite"
+              >
+                {t("words", { count: wordCount(String(v ?? "")), max: f.maxWords })}
+              </p>
+            )}
+            {pasteBlocked === f.id && (
+              <p className="mt-1 text-sm text-warning-fg">{t("pasteOff")}</p>
             )}
             {err && (
               <p className="mt-1 text-sm text-danger-fg">
-                {t(`errors.${err}` as "errors.required")}
+                {t(`errors.${err}` as "errors.required", { max: f.maxWords ?? 0 })}
               </p>
             )}
           </div>

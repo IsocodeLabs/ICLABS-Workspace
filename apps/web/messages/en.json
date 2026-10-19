@@ -180,8 +180,12 @@
       "number": "Enter a number.",
       "too_long": "That's too long.",
       "file": "Upload the file again.",
-      "problem": "Pick one problem statement."
+      "problem": "Pick one problem statement.",
+      "too_many_words": "Keep it to {max} words."
     },
+    "typeOnly": "Type this answer yourself. Pasting is turned off.",
+    "pasteOff": "Pasting is turned off for this answer.",
+    "words": "{count} / {max} words",
     "problemPick": "Choose your problem statement",
     "problemHint": "These were picked for you. Choose one and base all your work on it.",
     "upload": "Upload a file",
