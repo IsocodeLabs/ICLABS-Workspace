@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Markdown } from "@/components/markdown";
 import { notFound } from "next/navigation";
 import { ArrowLeft, ExternalLink, FileText, ShieldAlert } from "lucide-react";
 import { formatIst, taskSubmissionFields } from "@iclabs/core";
@@ -147,7 +148,7 @@ export default async function ReviewPage({ params }: { params: Promise<{ assignm
           {brief && (
             <details className="rounded-card border border-border bg-surface px-6 py-4">
               <summary className="cursor-pointer font-semibold">What the candidate was asked</summary>
-              <p className="mt-3 whitespace-pre-wrap text-muted">{brief}</p>
+              <div className="mt-3 text-muted"><Markdown>{brief}</Markdown></div>
             </details>
           )}
 

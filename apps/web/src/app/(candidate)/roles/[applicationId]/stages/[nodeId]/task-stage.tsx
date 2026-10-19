@@ -4,6 +4,7 @@ import { useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { PROBLEM_ID_KEY } from "@iclabs/core/workflow";
+import { Markdown } from "@/components/markdown";
 import { Alert, Button } from "@/components/ui";
 import { submitTaskAction } from "@/app/(candidate)/stage-actions";
 import { FileUpload } from "./file-upload";
@@ -83,7 +84,7 @@ export function TaskStage({
       {brief && (
         <section className="rounded-card border border-border bg-surface p-8 shadow-card">
           <h2 className="mb-3 font-display text-xl font-semibold">{t("brief")}</h2>
-          <div className="whitespace-pre-line leading-relaxed">{brief}</div>
+          <Markdown>{brief}</Markdown>
         </section>
       )}
       <form
