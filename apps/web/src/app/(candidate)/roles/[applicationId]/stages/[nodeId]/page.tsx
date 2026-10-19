@@ -78,6 +78,7 @@ export default async function StagePage({
               {...common}
               brief={node.brief}
               deliverables={node.deliverables}
+              problemStatements={node.problemStatements}
               allowResubmit={node.allowResubmit}
               draft={stage.draft as Record<string, string>}
               last={

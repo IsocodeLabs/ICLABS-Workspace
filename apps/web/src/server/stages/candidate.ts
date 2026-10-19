@@ -15,6 +15,10 @@ import {
 import {
   autoScore,
   can,
+  offeredProblemStatements,
+  problemStatementText,
+  PROBLEM_ID_KEY,
+  PROBLEM_KEY,
   seededShuffle,
   validateFormAnswers,
   type Actor,
@@ -99,7 +103,7 @@ export async function getCandidateStage(
   return {
     roleTitle: s.pinned.roleTitle,
     applicationId,
-    node: publicNode(s.node),
+    node: publicNode(s.node, s.progress.id),
     state: s.progress.state,
     dueAt: s.progress.dueAt,
     closesAt: close,
@@ -125,8 +129,11 @@ export async function getCandidateStage(
   };
 }
 
-/** Strips everything a candidate shouldn't see (reviewer setup, rubric, rules, email keys). */
-function publicNode(node: WorkflowNode) {
+/**
+ * Strips everything a candidate shouldn't see (reviewer setup, rubric, rules, email keys, and
+ * problem statements outside the ones offered to them). `seed` is their stage progress id.
+ */
+function publicNode(node: WorkflowNode, seed: string) {
   const base = {
     id: node.id,
     type: node.type,
@@ -144,6 +151,7 @@ function publicNode(node: WorkflowNode) {
         brief: node.config.brief,
         deliverables: node.config.deliverables,
         allowResubmit: node.config.allowResubmit,
+        problemStatements: offeredProblemStatements(node.config, seed),
       };
     case "assessment":
       return {
@@ -252,6 +260,18 @@ export async function submitTask(
   if (timing.closed) return { ok: false, error: "The deadline has passed." };
 
   const fieldErrors: Record<string, string> = {};
+  // The chosen statement is resolved from the pool here, never taken from candidate text.
+  const data: Record<string, string> = { ...deliverables };
+  delete data[PROBLEM_ID_KEY];
+  delete data[PROBLEM_KEY];
+  const offered = offeredProblemStatements(s.node.config, s.progress.id);
+  if (offered.length) {
+    const picked = offered.find((p) => p.id === deliverables[PROBLEM_ID_KEY]);
+    if (picked) {
+      data[PROBLEM_ID_KEY] = picked.id;
+      data[PROBLEM_KEY] = problemStatementText(picked);
+    } else fieldErrors[PROBLEM_ID_KEY] = "required";
+  }
   const fileIds: string[] = [];
   for (const d of s.node.config.deliverables) {
     const v = deliverables[d.id]?.trim() ?? "";
@@ -285,7 +305,7 @@ export async function submitTask(
   if (Object.keys(fieldErrors).length)
     return { ok: false, error: "Check the highlighted deliverables.", fieldErrors };
 
-  await recordSubmission(db, s.progress.id, deliverables, [...okFiles], timing, now);
+  await recordSubmission(db, s.progress.id, data, [...okFiles], timing, now);
   if (!resubmitting) await afterSubmit(db, deps, s, { answers: {}, late: timing.late });
   return { ok: true, late: timing.late };
 }

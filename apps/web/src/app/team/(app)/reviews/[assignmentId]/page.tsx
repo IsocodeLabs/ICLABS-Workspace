@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft, ExternalLink, FileText, ShieldAlert } from "lucide-react";
-import { formatIst } from "@iclabs/core";
+import { formatIst, taskSubmissionFields } from "@iclabs/core";
 import { Card } from "@/components/admin";
 import { StatusPill } from "@/components/ui";
 import { db } from "@/server/db";
@@ -81,7 +81,7 @@ function Submission({ view }: { view: ReviewView }) {
   const data = submission.data as Record<string, unknown>;
   const items =
     node.type === "task"
-      ? node.config.deliverables.map((d) => ({ id: d.id, label: d.label, file: d.kind === "file" }))
+      ? taskSubmissionFields(node.config)
       : node.type === "form" || node.type === "custom"
         ? node.config.fields.filter((f) => f.kind !== "section").map((f) => ({ id: f.id, label: f.label, file: f.kind === "file" }))
         : Object.keys(data).map((k) => ({ id: k, label: k, file: false }));

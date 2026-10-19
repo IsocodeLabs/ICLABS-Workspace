@@ -179,8 +179,11 @@
       "email": "Enter a valid email.",
       "number": "Enter a number.",
       "too_long": "That's too long.",
-      "file": "Upload the file again."
+      "file": "Upload the file again.",
+      "problem": "Pick one problem statement."
     },
+    "problemPick": "Choose your problem statement",
+    "problemHint": "These were picked for you. Choose one and base all your work on it.",
     "upload": "Upload a file",
     "uploading": "Uploading…",
     "uploaded": "Uploaded: {name}",

@@ -19,7 +19,7 @@ import {
   users,
   type Db,
 } from "@iclabs/db";
-import { can, formatIst, type Actor } from "@iclabs/core";
+import { can, formatIst, taskSubmissionFields, type Actor } from "@iclabs/core";
 import { ulid } from "ulid";
 import { assertCan, audit } from "../audit";
 import { type CalendarClient, overlaps } from "../calendar";
@@ -417,7 +417,7 @@ function labelledFields(node: PinnedApplication["config"]["nodes"][number] | und
   if (!node || !data) return [];
   const defs =
     node.type === "task"
-      ? node.config.deliverables.map((d) => ({ id: d.id, label: d.label, file: d.kind === "file" }))
+      ? taskSubmissionFields(node.config)
       : node.type === "form" || node.type === "custom"
         ? node.config.fields.filter((f) => f.kind !== "section").map((f) => ({ id: f.id, label: f.label, file: f.kind === "file" }))
         : [];

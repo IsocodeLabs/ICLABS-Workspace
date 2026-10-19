@@ -3,6 +3,7 @@
 import { useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { PROBLEM_ID_KEY } from "@iclabs/core/workflow";
 import { Alert, Button } from "@/components/ui";
 import { submitTaskAction } from "@/app/(candidate)/stage-actions";
 import { FileUpload } from "./file-upload";
@@ -26,6 +27,7 @@ export function TaskStage({
   nodeId,
   brief,
   deliverables,
+  problemStatements,
   allowResubmit,
   last,
   closed,
@@ -35,6 +37,7 @@ export function TaskStage({
   nodeId: string;
   brief: string;
   deliverables: Deliverable[];
+  problemStatements: { id: string; title: string; body: string }[];
   allowResubmit: boolean;
   draft: Record<string, string>;
   last: {
@@ -99,6 +102,49 @@ export function TaskStage({
           </p>
         )}
         <fieldset disabled={!editable || busy}>
+          {problemStatements.length > 0 && (
+            <div role="radiogroup" aria-labelledby="ps-label" className="mb-6">
+              <p id="ps-label" className="mb-1.5 font-semibold">
+                {t("problemPick")}
+                <span className="ml-1 text-sm font-normal text-muted">({t("required")})</span>
+              </p>
+              <p className="mb-3 text-sm text-muted">{t("problemHint")}</p>
+              <div className="space-y-3">
+                {problemStatements.map((p, i) => {
+                  const chosen = values[PROBLEM_ID_KEY] === p.id;
+                  return (
+                    <label
+                      key={p.id}
+                      className={`block cursor-pointer rounded-xl border p-4 transition ${chosen ? "border-brand-500 ring-2 ring-brand-soft" : "border-border hover:border-brand-500"}`}
+                    >
+                      <span className="flex items-start gap-3">
+                        <input
+                          type="radio"
+                          name="problem-statement"
+                          className="mt-1.5"
+                          checked={chosen}
+                          onChange={() => setValues((v) => ({ ...v, [PROBLEM_ID_KEY]: p.id }))}
+                        />
+                        <span>
+                          <span className="block font-semibold">
+                            {i + 1}. {p.title}
+                          </span>
+                          {p.body && (
+                            <span className="mt-1 block whitespace-pre-line text-sm leading-relaxed">
+                              {p.body}
+                            </span>
+                          )}
+                        </span>
+                      </span>
+                    </label>
+                  );
+                })}
+              </div>
+              {errors[PROBLEM_ID_KEY] && (
+                <p className="mt-1 text-sm text-danger-fg">{t("errors.problem")}</p>
+              )}
+            </div>
+          )}
           {deliverables.map((d) => {
             const id = `d-${d.id}`;
             return (

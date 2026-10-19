@@ -12,7 +12,13 @@ import {
   type Db,
 } from "@iclabs/db";
 import { createTestDb } from "@iclabs/db/testing";
-import { createNode, emptyWorkflow, type WorkflowConfig } from "@iclabs/core";
+import {
+  createNode,
+  emptyWorkflow,
+  PROBLEM_ID_KEY,
+  PROBLEM_KEY,
+  type WorkflowConfig,
+} from "@iclabs/core";
 import { teamActor } from "../../test/fixtures";
 import { loadActor } from "../auth/actor";
 import { createCandidateAccount } from "../auth/candidate-auth";
@@ -129,7 +135,7 @@ beforeEach(() => {
   onAwaitingReview.mockClear();
 });
 
-async function newApplication() {
+async function newApplication(config: WorkflowConfig = process()) {
   const role = await createRole(db, admin, {
     title: "SDE Intern",
     slug: `sde-${Math.random().toString(36).slice(2)}`,
@@ -140,7 +146,7 @@ async function newApplication() {
   await saveDraft(db, admin, {
     workflowId: tracks[0]!.id,
     versionId: data.draft!.id,
-    config: process(),
+    config,
     etag: data.draft!.etag,
   });
   await publishDraft(db, admin, { workflowId: tracks[0]!.id, versionId: data.draft!.id });
@@ -336,6 +342,81 @@ describe("candidate flow through stages", () => {
     expect(
       await submitTask(db, deps, actor, app.id, "task", { repo: "https://github.com/me/x3" }),
     ).toMatchObject({ ok: false, error: "The deadline has passed." });
+  });
+
+  it("task: each candidate sees a stable random few problem statements and must pick one of them", async () => {
+    const config = process();
+    const task = config.nodes.find((n) => n.id === "task")!;
+    if (task.type !== "task") throw new Error("task");
+    task.config.problemStatements = {
+      offer: 5,
+      items: Array.from({ length: 15 }, (_, i) => ({
+        id: `ps${i + 1}`,
+        title: `Problem ${i + 1}`,
+        body: `Details ${i + 1}`,
+      })),
+    };
+    const reachTask = async () => {
+      const a = await newApplication(config);
+      await submitForm(db, deps, a.actor, a.app.id, "form", { track: "Backend" });
+      const s = await startAssessment(db, a.actor, a.app.id, "quiz", clock);
+      const qs = await getAssessmentQuestions(db, a.actor, a.app.id, "quiz");
+      for (const q of qs!.questions)
+        await saveAnswer(db, a.actor, a.app.id, "quiz", q.id, answerKey[q.id]!, clock);
+      await submitAssessment(db, deps, (s as { sessionId: string }).sessionId, { actor: a.actor });
+      return a;
+    };
+    const offered = async (a: Awaited<ReturnType<typeof reachTask>>) => {
+      const view = await getCandidateStage(db, a.actor, a.app.id, "task", clock);
+      return (view!.node as { problemStatements: { id: string }[] }).problemStatements.map(
+        (p) => p.id,
+      );
+    };
+
+    const { app, actor } = await reachTask();
+    const mine = await offered({ app, actor } as Awaited<ReturnType<typeof reachTask>>);
+    expect(mine).toHaveLength(5);
+    expect(new Set(mine).size).toBe(5);
+    expect(await offered({ app, actor } as Awaited<ReturnType<typeof reachTask>>)).toEqual(mine);
+    const others = await Promise.all([1, 2, 3].map(async () => offered(await reachTask())));
+    expect(others.some((o) => o.join() !== mine.join())).toBe(true);
+
+    const repo = "https://github.com/me/x";
+    expect(await submitTask(db, deps, actor, app.id, "task", { repo })).toMatchObject({
+      ok: false,
+      fieldErrors: { [PROBLEM_ID_KEY]: "required" },
+    });
+    const notOffered = Array.from({ length: 15 }, (_, i) => `ps${i + 1}`).find(
+      (id) => !mine.includes(id),
+    )!;
+    expect(
+      await submitTask(db, deps, actor, app.id, "task", { repo, [PROBLEM_ID_KEY]: notOffered }),
+    ).toMatchObject({ ok: false, fieldErrors: { [PROBLEM_ID_KEY]: "required" } });
+
+    const picked = mine[2]!;
+    const n = picked.slice(2);
+    expect(
+      await submitTask(db, deps, actor, app.id, "task", {
+        repo,
+        [PROBLEM_ID_KEY]: picked,
+        [PROBLEM_KEY]: "spoofed text",
+      }),
+    ).toEqual({ ok: true, late: false });
+    const [progress] = await db
+      .select()
+      .from(stageProgress)
+      .where(and(eq(stageProgress.applicationId, app.id), eq(stageProgress.nodeId, "task")));
+    const [saved] = await db
+      .select()
+      .from(submissions)
+      .where(eq(submissions.stageProgressId, progress!.id));
+    expect(saved!.data).toEqual({
+      repo,
+      [PROBLEM_ID_KEY]: picked,
+      [PROBLEM_KEY]: `Problem ${n}
+
+Details ${n}`,
+    });
   });
 
   it("sends one reminder 24h before, marks missed stages, and an extension reopens them", async () => {

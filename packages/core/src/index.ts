@@ -11,4 +11,5 @@ export * from "./workflow/validate";
 export * from "./workflow/diff";
 export * from "./workflow/describe";
 export * from "./workflow/path";
+export * from "./workflow/problem-statements";
 export * from "./engine";

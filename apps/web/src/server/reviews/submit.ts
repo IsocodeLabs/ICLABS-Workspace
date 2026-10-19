@@ -13,7 +13,7 @@ import {
   teamMembers,
   type Db,
 } from "@iclabs/db";
-import { isBorderline, rubricPct, validateScores, type Actor, type Recommendation } from "@iclabs/core";
+import { isBorderline, rubricPct, taskSubmissionFields, validateScores, type Actor, type Recommendation } from "@iclabs/core";
 import { assertCan, audit } from "../audit";
 import type { AiReviewInput, AiReviewer } from "../ai/review";
 import { advanceFrom, loadPinned, notifyAdmins, type ProgressionDeps } from "../stages/progression";
@@ -172,7 +172,7 @@ export async function submissionForAi(db: Db, progressId: string, nodeId: string
       : [];
     const labelled =
       node.type === "task"
-        ? node.config.deliverables.map((d) => ({ id: d.id, label: d.label, file: d.kind === "file" }))
+        ? taskSubmissionFields(node.config)
         : node.type === "form" || node.type === "custom"
           ? node.config.fields
               .filter((f) => f.kind !== "section")

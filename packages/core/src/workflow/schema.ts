@@ -128,6 +128,21 @@ export const taskConfigSchema = z.object({
     )
     .max(10),
   allowResubmit: z.boolean(),
+  /** A pool of problem statements; each candidate is shown a random `offer` of them and picks one. */
+  problemStatements: z
+    .object({
+      offer: z.number().int().min(1).max(20),
+      items: z
+        .array(
+          z.object({
+            id,
+            title: z.string().max(200),
+            body: z.string().max(5000),
+          }),
+        )
+        .max(50),
+    })
+    .optional(),
 });
 
 export const reviewGateConfigSchema = z.object({ instructions: z.string().max(5000).optional() });

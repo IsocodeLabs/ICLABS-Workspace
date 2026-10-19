@@ -533,6 +533,10 @@ function TaskContent({
       >
         <Plus size={15} /> Add deliverable
       </Btn>
+      <ProblemStatements
+        value={c.problemStatements}
+        onChange={(problemStatements) => setConfig({ problemStatements })}
+      />
       <div className="mt-4">
         <Check
           label="Allow resubmission until the deadline"
@@ -541,6 +545,83 @@ function TaskContent({
         />
       </div>
     </>
+  );
+}
+
+type ProblemPool = NodeOf<"task">["config"]["problemStatements"];
+
+/** The pool each candidate gets a random few of. Empty pool → no picker for candidates. */
+function ProblemStatements({
+  value,
+  onChange,
+}: {
+  value: ProblemPool;
+  onChange: (v: ProblemPool) => void;
+}) {
+  const pool = value ?? { offer: 5, items: [] };
+  const items = pool.items;
+  const set = (patch: Partial<NonNullable<ProblemPool>>) => {
+    const next = { ...pool, ...patch };
+    onChange(next.items.length ? next : undefined);
+  };
+  return (
+    <div className="mt-5">
+      <Label>Problem statements</Label>
+      <p className="mb-2 text-xs text-muted">
+        Each candidate sees a random few from this list and picks one. Leave empty to skip.
+      </p>
+      {items.length > 0 && (
+        <Row label="Show each candidate">
+          <Input
+            aria-label="Problem statements shown to each candidate"
+            type="number"
+            min={1}
+            max={20}
+            value={pool.offer}
+            onChange={(e) => set({ offer: Math.min(20, num(e.target.value, 1)) })}
+          />
+        </Row>
+      )}
+      {items.map((p, i) => (
+        <div key={p.id} className="mb-3 rounded-lg border border-border p-2">
+          <div className="mb-2 grid grid-cols-[1fr_auto] items-center gap-2">
+            <Input
+              aria-label={`Problem statement ${i + 1} title`}
+              placeholder={`${i + 1}. Title`}
+              value={p.title}
+              onChange={(e) =>
+                set({ items: items.map((x, j) => (j === i ? { ...x, title: e.target.value } : x)) })
+              }
+            />
+            <Btn
+              variant="ghost"
+              size="sm"
+              aria-label="Remove problem statement"
+              onClick={() => set({ items: items.filter((_, j) => j !== i) })}
+            >
+              <Trash2 size={15} />
+            </Btn>
+          </div>
+          <TextArea
+            aria-label={`Problem statement ${i + 1} details`}
+            placeholder="Details, PRD, mockup link…"
+            className="min-h-24"
+            value={p.body}
+            onChange={(e) =>
+              set({ items: items.map((x, j) => (j === i ? { ...x, body: e.target.value } : x)) })
+            }
+          />
+        </div>
+      ))}
+      <Btn
+        variant="secondary"
+        size="sm"
+        disabled={items.length >= 50}
+        onClick={() => set({ items: [...items, { id: ulid(), title: "", body: "" }] })}
+      >
+        <Plus size={15} /> Add problem statement
+      </Btn>
+    </div>
   );
 }
 

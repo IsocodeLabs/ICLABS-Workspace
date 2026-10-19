@@ -22,6 +22,8 @@ export type Issue = {
     | "no_interviewers"
     | "no_deadline"
     | "no_deliverables"
+    | "few_problem_statements"
+    | "untitled_problem_statement"
     | "auto_reject"
     | "incomplete_rule";
   message: string;
@@ -169,6 +171,20 @@ export function validateWorkflow(config: WorkflowConfig): Issue[] {
     if (n.type === "task" && n.config.deliverables.length === 0) {
       err("no_deliverables", `"${n.title}" asks for nothing to be submitted.`, at);
     }
+    const ps = n.type === "task" ? n.config.problemStatements : undefined;
+    if (ps?.items.length && ps.items.length < ps.offer) {
+      warn(
+        "few_problem_statements",
+        `"${n.title}" offers ${ps.offer} problem statements but only has ${ps.items.length}.`,
+        at,
+      );
+    }
+    if (ps?.items.some((p) => !p.title.trim()))
+      err(
+        "untitled_problem_statement",
+        `"${n.title}" has a problem statement without a title.`,
+        at,
+      );
     if (n.type === "interview" && n.config.interviewerPool.length === 0) {
       err("no_interviewers", `"${n.title}" needs at least one interviewer.`, at);
     }
