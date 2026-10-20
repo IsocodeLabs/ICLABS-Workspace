@@ -32,7 +32,7 @@ export function ProfileForm({ initial }: { initial: Values }) {
       action={action}
       className="mt-8 rounded-card border border-border bg-surface p-8 shadow-card"
     >
-      {state?.ok === false && <Alert>{state.error}</Alert>}
+      {state?.ok === false && <Alert support>{state.error}</Alert>}
       {state?.ok && <Alert tone="success">{t("saved")}</Alert>}
       <div className="grid gap-x-6 md:grid-cols-2">
         {field("name")}

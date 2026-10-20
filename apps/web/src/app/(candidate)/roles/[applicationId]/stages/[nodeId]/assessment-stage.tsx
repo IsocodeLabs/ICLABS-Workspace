@@ -202,7 +202,7 @@ export function AssessmentStage({
         </ul>
         {error && (
           <div className="mt-4">
-            <Alert>{error}</Alert>
+            <Alert support>{error}</Alert>
           </div>
         )}
         <Button className="mt-6 !w-auto px-8" onClick={begin}>
@@ -213,7 +213,7 @@ export function AssessmentStage({
   }
 
   if (phase === "loading" || questions.length === 0) {
-    return error ? <Alert>{error}</Alert> : <p className="text-muted">…</p>;
+    return error ? <Alert support>{error}</Alert> : <p className="text-muted">…</p>;
   }
 
   const q = questions[index]!;

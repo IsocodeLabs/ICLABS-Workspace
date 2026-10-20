@@ -2,7 +2,11 @@
   "common": {
     "appName": "Isocode Workspace",
     "signOut": "Sign out",
-    "loading": "Please wait…"
+    "loading": "Please wait…",
+    "support": "If the issue persists, reach out to <link>hr@isocodelabs.com</link>.",
+    "errorTitle": "Something went wrong",
+    "errorBody": "This page hit a problem. Try again in a moment.",
+    "retry": "Try again"
   },
   "login": {
     "title": "Sign in to your workspace",

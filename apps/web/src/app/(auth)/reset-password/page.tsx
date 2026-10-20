@@ -38,8 +38,8 @@ function ResetForm() {
   }
   return (
     <form onSubmit={onSubmit}>
-      {status === "error" && <Alert>{t("invalid")}</Alert>}
-      {status === "mismatch" && <Alert>{cp("errors.mismatch")}</Alert>}
+      {status === "error" && <Alert support>{t("invalid")}</Alert>}
+      {status === "mismatch" && <Alert support>{cp("errors.mismatch")}</Alert>}
       <Field
         label={cp("new")}
         id="newPassword"

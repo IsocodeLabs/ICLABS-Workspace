@@ -20,7 +20,7 @@ export default async function WelcomePage({
         ))}
       </ul>
       <form action={acceptConsentAction}>
-        {error && <Alert>{t("consent")}</Alert>}
+        {error && <Alert support>{t("consent")}</Alert>}
         <label className="mb-5 flex items-start gap-3 text-[0.95rem]">
           <input
             type="checkbox"

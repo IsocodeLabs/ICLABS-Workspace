@@ -1,4 +1,5 @@
 import type { ButtonHTMLAttributes, InputHTMLAttributes, ReactNode } from "react";
+import { useTranslations } from "next-intl";
 import { LogoMark } from "./logo";
 
 export function AuthShell({
@@ -68,10 +69,36 @@ const tones = {
 
 export type Tone = keyof typeof tones;
 
-export function Alert({ tone = "danger", children }: { tone?: Tone; children: ReactNode }) {
+export function Alert({
+  tone = "danger",
+  support,
+  children,
+}: {
+  tone?: Tone;
+  /** Candidate-facing errors: adds who to contact if it keeps happening. */
+  support?: boolean;
+  children: ReactNode;
+}) {
   return (
-    <p role="alert" className={`mb-4 rounded-xl px-3.5 py-2.5 text-sm ${tones[tone]}`}>
-      {children}
+    <div role="alert" className={`mb-4 rounded-xl px-3.5 py-2.5 text-sm ${tones[tone]}`}>
+      <p>{children}</p>
+      {support && <SupportHint className="mt-1" />}
+    </div>
+  );
+}
+
+/** "If the issue persists, reach out to hr@isocodelabs.com." For anything a candidate can hit. */
+export function SupportHint({ className = "" }: { className?: string }) {
+  const t = useTranslations("common");
+  return (
+    <p className={className}>
+      {t.rich("support", {
+        link: (chunks) => (
+          <a href="mailto:hr@isocodelabs.com" className="font-semibold underline">
+            {chunks}
+          </a>
+        ),
+      })}
     </p>
   );
 }

@@ -114,7 +114,7 @@ export function TaskStage({
         noValidate
       >
         <h2 className="mb-4 font-display text-xl font-semibold">{t("deliverables")}</h2>
-        {error && <Alert tone="danger">{error}</Alert>}
+        {error && <Alert support>{error}</Alert>}
         <fieldset disabled={!editable || busy}>
           {problemStatements.length > 0 && (
             <div role="radiogroup" aria-labelledby="ps-label" className="mb-6">

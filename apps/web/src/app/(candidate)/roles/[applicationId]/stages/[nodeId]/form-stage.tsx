@@ -93,7 +93,7 @@ export function FormStage({
       className="rounded-card border border-border bg-surface p-8 shadow-card"
       noValidate
     >
-      {message && <Alert>{message}</Alert>}
+      {message && <Alert support>{message}</Alert>}
       {fields.map((f) => {
         if (f.kind === "section") {
           return (

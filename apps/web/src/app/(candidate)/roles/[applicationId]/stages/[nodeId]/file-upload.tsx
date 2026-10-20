@@ -3,6 +3,7 @@
 import { useTranslations } from "next-intl";
 import { useState } from "react";
 import { Paperclip } from "lucide-react";
+import { SupportHint } from "@/components/ui";
 import { confirmUploadAction, requestUploadAction } from "@/app/(candidate)/stage-actions";
 
 /** Uploads straight to storage with a short-lived URL, then confirms with the server. */
@@ -68,7 +69,12 @@ export function FileUpload({
         }}
       />
       <p className="mt-1 text-xs text-muted">{t("fileHint")}</p>
-      {error && <p className="mt-1 text-sm text-danger-fg">{error}</p>}
+      {error && (
+        <div role="alert" className="mt-1 text-sm text-danger-fg">
+          <p>{error}</p>
+          <SupportHint />
+        </div>
+      )}
     </div>
   );
 }

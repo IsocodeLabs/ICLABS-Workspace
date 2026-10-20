@@ -14,7 +14,7 @@ export function LoginForm() {
   return (
     <form action={action} noValidate>
       {state?.error && (
-        <Alert tone={state.error === "temp_expired" ? "warning" : "danger"}>
+        <Alert tone={state.error === "temp_expired" ? "warning" : "danger"} support>
           {t(`errors.${state.error}` as "errors.invalid", { minutes: state.retryMinutes ?? 15 })}
         </Alert>
       )}

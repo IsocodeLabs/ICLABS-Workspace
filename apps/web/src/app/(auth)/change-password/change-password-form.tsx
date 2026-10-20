@@ -12,7 +12,7 @@ export function ChangePasswordForm({ currentLabel }: { currentLabel: string }) {
 
   return (
     <form action={action}>
-      {state?.error && <Alert>{t(`errors.${state.error}` as "errors.mismatch")}</Alert>}
+      {state?.error && <Alert support>{t(`errors.${state.error}` as "errors.mismatch")}</Alert>}
       <Field
         label={currentLabel}
         id="currentPassword"
