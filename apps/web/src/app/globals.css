@@ -89,12 +89,12 @@ html.lite .bg-surface,
 html.lite dialog > div {
   -webkit-backdrop-filter: none;
   backdrop-filter: none;
-  background: rgb(255 255 255 / 0.93);
+  background: rgb(255 255 255 / 0.97);
 }
 dialog { background: transparent; }
 dialog::backdrop { background: rgb(255 255 255 / 0.55); }
 /* Dialogs sit on top of everything, so give them a sturdier glass. */
-dialog > div { background: rgb(255 255 255 / 0.92); -webkit-backdrop-filter: blur(16px); backdrop-filter: blur(16px); }
+dialog > div { background: rgb(255 255 255 / 0.97); -webkit-backdrop-filter: blur(var(--glass-blur)); backdrop-filter: blur(var(--glass-blur)); }
 /* Page titles sit straight on the backdrop: invert against the liquid so they never vanish.
    Any other text placed straight on the backdrop (back links, section labels) takes .on-liquid. */
 h1.font-display, h1.font-display + p, main > section > h2, .on-liquid { color: #fff; mix-blend-mode: difference; }

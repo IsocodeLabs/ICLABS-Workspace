@@ -13,7 +13,7 @@ export function AuthShell({
   return (
     <main className="flex min-h-dvh items-center justify-center px-4 py-12">
       <div className="w-full max-w-md">
-        <LogoMark size={40} className="mb-5 text-text" />
+        <LogoMark size={40} className="on-liquid mb-5" />
         <section className="rounded-card border border-border bg-surface p-8 shadow-card">
           <h1 className="font-display text-2xl font-bold tracking-tight">{title}</h1>
           {subtitle && <p className="mt-2 text-muted">{subtitle}</p>}

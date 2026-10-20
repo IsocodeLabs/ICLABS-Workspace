@@ -112,9 +112,9 @@ export function PipelineBoard({
             </button>
           ))}
         </div>
-        <p className="text-sm text-muted">{cards.length} {cards.length === 1 ? "candidate" : "candidates"}</p>
+        <p className="on-liquid text-sm">{cards.length} {cards.length === 1 ? "candidate" : "candidates"}</p>
         {selected.size > 0 && (
-          <div className="ml-auto flex items-center gap-2 rounded-xl bg-brand-soft px-3 py-1.5">
+          <div className="ml-auto flex items-center gap-2 rounded-xl border border-border bg-surface px-3 py-1.5">
             <span className="text-sm font-semibold">{selected.size} selected</span>
             <Btn size="sm" variant="secondary" onClick={() => setBulk("advance")}>Move to…</Btn>
             <Btn size="sm" variant="secondary" onClick={() => setBulk("hold")}>Hold</Btn>
@@ -128,18 +128,18 @@ export function PipelineBoard({
       {view === "board" ? (
         <div className="flex gap-4 overflow-x-auto pb-4">
           {columns.map((col) => (
-            <section key={col.id} className="flex w-72 shrink-0 flex-col rounded-card border border-border bg-neutral-bg/60">
+            <section key={col.id} className="flex w-72 shrink-0 flex-col rounded-card border border-border bg-surface">
               <header className="flex items-center gap-2 border-b border-border px-3 py-2.5">
                 <span className="h-2.5 w-2.5 rounded-full" style={{ background: col.tone }} aria-hidden />
                 <h2 className="flex-1 truncate text-sm font-bold">{col.title}</h2>
-                <span className="rounded-full bg-surface px-2 text-xs font-semibold tabular-nums">{col.cards.length}</span>
+                <span className="rounded-full bg-neutral-bg px-2 text-xs font-semibold tabular-nums">{col.cards.length}</span>
                 {isAdmin && col.node && (
                   <button
                     type="button"
                     title="Run this stage's rules now"
                     aria-label={`Run rules for ${col.title}`}
                     onClick={() => setRulesFor(col.node)}
-                    className="rounded-md p-1 text-muted hover:bg-surface hover:text-brand-600"
+                    className="rounded-md p-1 text-muted hover:bg-neutral-bg hover:text-brand-600"
                   >
                     <Play size={14} />
                   </button>

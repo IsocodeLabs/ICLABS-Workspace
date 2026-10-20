@@ -26,7 +26,7 @@ gradients, neon, purple/cyan accents or dark mode.
    (`--brand-500 #14141c`, hover `--brand-600 #000`). The only "accent" is
    `--accent-gradient` (graphite → black) for the small logo square and progress bars.
 2. **Glass is the surface.** Cards, nav, top bar, dialogs: `bg-surface`
-   (`rgb(255 255 255 / .84)`) + `backdrop-filter: blur(14px)` + `--shadow-card` + 1px
+   (`rgb(255 255 255 / .94)`) + `backdrop-filter: blur(24px)` + `--shadow-card` + 1px
    `--border` (`rgb(0 0 0 / .1)`) + `--radius` 18px. Never put content straight on the
    liquid except page titles (rule 5).
 3. **Colour only for status, always with words.** Soft pill pairs, all WCAG AA:
@@ -39,9 +39,12 @@ gradients, neon, purple/cyan accents or dark mode.
 5. **Titles that sit on the liquid invert.** `h1.font-display`, the subtitle after it, and
    `main > section > h2` use `color:#fff; mix-blend-mode:difference` so they stay readable
    when a black shape drifts under them. Keep page titles as direct `h1.font-display`.
+   Any other text or icon placed straight on the liquid (back links, section labels outside a
+   card, the auth logo, empty-state lines) takes the `on-liquid` class, which does the same.
+   Don't make glass thinner than `.94`: at `.84` a passing shape turns whole cards grey.
 6. **Never laggy.** Blur is the expensive thing: only `.bg-surface` blurs; small chips use
    flat `bg-neutral-bg`. `html.lite` (set automatically on weak machines / reduced motion)
-   swaps blur for solid `rgb(255 255 255/.93)` — every new glass surface must honour it.
+   swaps blur for solid `rgb(255 255 255/.97)` — every new glass surface must honour it.
    Every route group has a `loading.tsx` using `<PageSkeleton>`; heavy libs load on demand
    (`import()`), and `optimizePackageImports` covers lucide-react and @xyflow/react.
 7. **Destructive actions confirm** in a danger-styled dialog (`Btn variant="danger"`);
@@ -52,14 +55,14 @@ gradients, neon, purple/cyan accents or dark mode.
 | Role | Token | Value |
 |---|---|---|
 | Page | `--bg` | `#ffffff` (the liquid canvas sits on it) |
-| Glass | `--surface` / `--surface-solid` | `rgb(255 255 255/.84)` / `#fff` |
+| Glass | `--surface` / `--surface-solid` | `rgb(255 255 255/.94)` / `#fff` |
 | Edge | `--border` | `rgb(0 0 0/.1)` |
 | Text / muted | `--text` / `--text-muted` | `#0a0a10` / `#4b4b5a` |
 | Primary | `--brand-500` → `--brand-600` | `#14141c` → `#000` |
 | Tint | `--brand-soft` | `rgb(0 0 0/.07)` (focus rings, selected rows) |
 | Radius | `--radius` | 18px cards; controls/buttons `rounded-xl` (12px); pills `rounded-full` |
 | Shadow | `--shadow-card` | `0 1px 0 rgb(255 255 255/.9) inset, 0 10px 34px rgb(0 0 0/.1)` |
-| Blur | `--glass-blur` | 14px (dialogs 16px) |
+| Blur | `--glass-blur` | 24px (dialogs too) |
 
 Tailwind 4 maps these in `apps/web/src/app/globals.css` (`@theme inline`): use
 `bg-surface`, `border-border`, `text-muted`, `bg-brand-500`, `rounded-card`,
