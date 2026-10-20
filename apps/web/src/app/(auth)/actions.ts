@@ -44,7 +44,7 @@ export async function signInAction(_prev: FormState, form: FormData): Promise<Fo
 
 const changeSchema = z
   .object({
-    currentPassword: z.string().min(1).max(256),
+    currentPassword: z.string().max(256).optional(),
     newPassword: z.string().max(256),
     confirmPassword: z.string().max(256),
   })
@@ -53,7 +53,7 @@ const changeSchema = z
 export async function changePasswordAction(_prev: FormState, form: FormData): Promise<FormState> {
   const { session } = await requireCandidate({ passwordChangePage: true });
   const parsed = changeSchema.safeParse({
-    currentPassword: form.get("currentPassword"),
+    currentPassword: form.get("currentPassword") ?? undefined,
     newPassword: form.get("newPassword"),
     confirmPassword: form.get("confirmPassword"),
   });
@@ -64,7 +64,7 @@ export async function changePasswordAction(_prev: FormState, form: FormData): Pr
     {
       userId: session.user.id,
       currentSessionId: session.session.id,
-      currentPassword: parsed.data.currentPassword,
+      currentPassword: parsed.data.currentPassword || undefined,
       newPassword: parsed.data.newPassword,
     },
   );

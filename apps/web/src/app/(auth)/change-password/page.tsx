@@ -12,7 +12,7 @@ export default async function ChangePasswordPage() {
       title={firstTime ? t("title") : t("titleVoluntary")}
       subtitle={firstTime ? t("subtitle") : t("subtitleVoluntary")}
     >
-      <ChangePasswordForm currentLabel={firstTime ? t("current") : t("currentVoluntary")} />
+      <ChangePasswordForm currentLabel={firstTime ? null : t("currentVoluntary")} />
     </AuthShell>
   );
 }

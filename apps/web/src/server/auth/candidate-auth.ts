@@ -203,26 +203,42 @@ export type ChangePasswordResult =
 
 /**
  * Changes a candidate's password (the forced first-login change, or later from the profile).
- * Ends every other session and lifts the first-login gate.
+ * On the forced first-login change the temporary password isn't asked for again: they just
+ * signed in with it, and re-typing it was where people got stuck. Later changes still need the
+ * current password. Ends every other session and lifts the first-login gate.
  */
 export async function changeCandidatePassword(
   deps: { db: Db; notifier: AuthNotifier; fetchFn?: typeof fetch; now?: () => Date },
-  input: { userId: string; currentSessionId: string; currentPassword: string; newPassword: string },
+  input: {
+    userId: string;
+    currentSessionId: string;
+    currentPassword?: string;
+    newPassword: string;
+  },
 ): Promise<ChangePasswordResult> {
   const { db } = deps;
   const now = deps.now?.() ?? new Date();
 
   const [row] = await db
-    .select({ email: users.email, accountId: accounts.id, passwordHash: accounts.password })
+    .select({
+      email: users.email,
+      accountId: accounts.id,
+      passwordHash: accounts.password,
+      firstLogin: users.mustChangePassword,
+    })
     .from(users)
     .innerJoin(accounts, and(eq(accounts.userId, users.id), eq(accounts.providerId, "credential")))
     .where(eq(users.id, input.userId));
-  if (!row?.passwordHash || !(await verifyPassword(row.passwordHash, input.currentPassword))) {
-    return { ok: false, reason: "wrong_current" };
+  if (!row?.passwordHash) return { ok: false, reason: "wrong_current" };
+  if (!row.firstLogin) {
+    if (!input.currentPassword || !(await verifyPassword(row.passwordHash, input.currentPassword)))
+      return { ok: false, reason: "wrong_current" };
   }
 
   const issues = validateNewPassword(input.newPassword, { previous: input.currentPassword });
   if (issues.length > 0) return { ok: false, reason: issues[0]! };
+  if (row.firstLogin && (await verifyPassword(row.passwordHash, input.newPassword)))
+    return { ok: false, reason: "same_as_previous" };
 
   const pwned = await checkPwnedPassword(input.newPassword, deps.fetchFn);
   if (pwned.pwned) return { ok: false, reason: "breached" };

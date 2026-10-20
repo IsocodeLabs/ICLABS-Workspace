@@ -182,8 +182,39 @@ describe("changeCandidatePassword", () => {
     });
   });
 
-  it("rejects a wrong current password", async () => {
+  it("doesn't ask for the temporary password again on the first-login change", async () => {
+    const c = await signedInCandidate("firstlogin@example.com");
+    expect(
+      await change({
+        userId: c.userId,
+        currentSessionId: c.sessionId,
+        newPassword: "a brand new passphrase",
+      }),
+    ).toEqual({ ok: true });
+    // A mistyped temporary password doesn't block it either.
+    const d = await signedInCandidate("firstlogin2@example.com");
+    expect(
+      await change({
+        userId: d.userId,
+        currentSessionId: d.sessionId,
+        currentPassword: "typo",
+        newPassword: "a brand new passphrase",
+      }),
+    ).toEqual({ ok: true });
+    // Still can't keep the temporary password, even without typing it.
+    const e = await signedInCandidate("firstlogin3@example.com");
+    expect(
+      await change({
+        userId: e.userId,
+        currentSessionId: e.sessionId,
+        newPassword: e.tempPassword,
+      }),
+    ).toEqual({ ok: false, reason: "same_as_previous" });
+  });
+
+  it("rejects a wrong current password on a later change", async () => {
     const c = await signedInCandidate("wrongcur@example.com");
+    await db.update(users).set({ mustChangePassword: false }).where(eq(users.id, c.userId));
     expect(
       await change({
         userId: c.userId,
