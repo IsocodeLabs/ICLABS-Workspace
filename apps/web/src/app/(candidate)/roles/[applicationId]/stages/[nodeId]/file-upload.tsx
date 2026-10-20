@@ -29,8 +29,10 @@ export function FileUpload({
         size: file.size,
       });
       if (!req.ok) throw new Error(req.error);
-      const put = await fetch(req.url, { method: "PUT", headers: req.headers, body: file });
-      if (!put.ok) throw new Error("Upload failed. Check your connection and try again.");
+      const put = await fetch(req.url, { method: "PUT", headers: req.headers, body: file }).catch(
+        () => null,
+      );
+      if (!put?.ok) throw new Error("Upload failed. Check your connection and try again.");
       const done = await confirmUploadAction(req.fileId);
       if (!done.ok) throw new Error(done.error);
       onChange({ id: req.fileId, name: file.name });

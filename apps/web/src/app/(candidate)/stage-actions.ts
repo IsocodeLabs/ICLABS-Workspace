@@ -133,6 +133,10 @@ export async function integrityAction(input: {
   await recordIntegrity(db(), actor, applicationId, nodeId, input.events.slice(0, 200));
 }
 
+// Storage errors are logged, not thrown: a thrown action reaches the candidate as an opaque React error.
+const UPLOAD_UNAVAILABLE =
+  "We couldn't upload your file right now. Try again in a few minutes, or share it as a link if this keeps happening.";
+
 export async function requestUploadAction(input: { filename: string; mime: string; size: number }) {
   const { actor } = await requireCandidate();
   const parsed = z
@@ -142,10 +146,21 @@ export async function requestUploadAction(input: { filename: string; mime: strin
       size: z.number().int(),
     })
     .parse(input);
-  return requestUpload(db(), fileStore(), actor, parsed);
+  try {
+    return await requestUpload(db(), fileStore(), actor, parsed);
+  } catch (e) {
+    console.error("requestUpload failed", e);
+    return { ok: false as const, error: UPLOAD_UNAVAILABLE };
+  }
 }
 
 export async function confirmUploadAction(fileId: string) {
   const { actor } = await requireCandidate();
-  return confirmUpload(db(), fileStore(), actor, z.string().max(40).parse(fileId), env().SCAN_MODE);
+  const id = z.string().max(40).parse(fileId);
+  try {
+    return await confirmUpload(db(), fileStore(), actor, id, env().SCAN_MODE);
+  } catch (e) {
+    console.error("confirmUpload failed", e);
+    return { ok: false as const, error: UPLOAD_UNAVAILABLE };
+  }
 }
