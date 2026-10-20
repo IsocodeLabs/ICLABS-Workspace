@@ -34,7 +34,8 @@ export function proxy(request: NextRequest) {
     "style-src 'self' 'unsafe-inline'",
     "img-src 'self' data: blob: https://lh3.googleusercontent.com",
     "font-src 'self' data:",
-    "connect-src 'self'",
+    // Candidate uploads go straight from the browser to Cloud Storage on a signed URL.
+    "connect-src 'self' https://storage.googleapis.com",
     "form-action 'self' https://accounts.google.com",
     "frame-ancestors 'none'",
     "base-uri 'self'",
