@@ -70,7 +70,15 @@ export function TaskStage({
     setBusy(true);
     const payload = { ...values };
     for (const [k, f] of Object.entries(files)) if (f) payload[k] = f.id;
-    const res = await submitTaskAction({ applicationId, nodeId, deliverables: payload });
+    let res: Awaited<ReturnType<typeof submitTaskAction>>;
+    try {
+      res = await submitTaskAction({ applicationId, nodeId, deliverables: payload });
+    } catch {
+      // Usually the workspace was updated while this page was open.
+      setBusy(false);
+      setError(t("staleSubmitTask"));
+      return;
+    }
     setBusy(false);
     if (res.ok) {
       setErrors({});

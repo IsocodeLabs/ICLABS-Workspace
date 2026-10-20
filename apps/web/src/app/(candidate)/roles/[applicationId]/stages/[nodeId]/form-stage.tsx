@@ -10,6 +10,29 @@ import { FileUpload } from "./file-upload";
 
 type Answers = Record<string, string | string[] | { id: string; name: string } | null>;
 
+/**
+ * A copy of the answers in this browser, so nothing typed is lost if a save fails (no
+ * connection, or the workspace was redeployed while the page was open).
+ */
+const backupKey = (applicationId: string, nodeId: string) =>
+  `stage-answers:${applicationId}:${nodeId}`;
+function readBackup(key: string): Answers | null {
+  try {
+    const raw = localStorage.getItem(key);
+    return raw ? (JSON.parse(raw) as Answers) : null;
+  } catch {
+    return null;
+  }
+}
+function writeBackup(key: string, answers: Answers | null) {
+  try {
+    if (answers) localStorage.setItem(key, JSON.stringify(answers));
+    else localStorage.removeItem(key);
+  } catch {
+    // Storage blocked: the server draft is the only copy.
+  }
+}
+
 const input =
   "w-full rounded-xl border border-border bg-surface px-3.5 py-2.5 text-base outline-none transition focus:border-brand-500 focus:ring-2 focus:ring-brand-soft";
 
@@ -32,23 +55,42 @@ export function FormStage({
   const [answers, setAnswers] = useState<Answers>(draft as Answers);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [message, setMessage] = useState<string | null>(null);
-  const [saving, setSaving] = useState<"idle" | "saving" | "saved">("idle");
+  const [saving, setSaving] = useState<"idle" | "saving" | "saved" | "failed">("idle");
   const [busy, setBusy] = useState(false);
   const [pasteBlocked, setPasteBlocked] = useState<string | null>(null);
+  const [stale, setStale] = useState(false);
   const lastSaved = useRef(JSON.stringify(draft));
+  const key = backupKey(applicationId, nodeId);
+
+  // Answers kept in this browser win over the server draft: they are at least as new, and
+  // they hold anything a failed save never stored. The autosave below then stores them.
+  useEffect(() => {
+    const local = readBackup(key);
+    if (local && JSON.stringify(local) !== lastSaved.current)
+      setAnswers({ ...draft, ...local } as Answers);
+    // Runs once on load; the server draft is the starting point.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [key]);
 
   // Autosave so a dropped connection or closed tab doesn't lose work (only real changes).
   useEffect(() => {
     const snapshot = JSON.stringify(answers);
     if (snapshot === lastSaved.current) return;
+    writeBackup(key, answers);
     setSaving("saving");
     const timer = setTimeout(async () => {
-      await saveDraftAction({ applicationId, nodeId, draft: answers });
-      lastSaved.current = snapshot;
-      setSaving("saved");
+      try {
+        const res = await saveDraftAction({ applicationId, nodeId, draft: answers });
+        if (!res.ok) throw new Error("not saved");
+        lastSaved.current = snapshot;
+        setSaving("saved");
+      } catch {
+        // Not stored on the server; the browser copy keeps it and the next change retries.
+        setSaving("failed");
+      }
     }, 1000);
     return () => clearTimeout(timer);
-  }, [answers, applicationId, nodeId]);
+  }, [answers, applicationId, nodeId, key]);
 
   const set = (id: string, v: Answers[string]) => setAnswers((a) => ({ ...a, [id]: v }));
 
@@ -69,18 +111,28 @@ export function FormStage({
 
   async function submit() {
     setBusy(true);
+    setMessage(null);
     const payload = Object.fromEntries(
       Object.entries(answers).map(([k, v]) => [
         k,
         v && typeof v === "object" && !Array.isArray(v) ? v.id : v,
       ]),
     );
-    const res = await submitFormAction({ applicationId, nodeId, answers: payload });
-    setBusy(false);
-    if (res.ok) router.refresh();
-    else {
-      setErrors(res.fieldErrors ?? {});
-      setMessage(res.error);
+    try {
+      const res = await submitFormAction({ applicationId, nodeId, answers: payload });
+      if (res.ok) {
+        writeBackup(key, null);
+        router.refresh();
+      } else {
+        setErrors(res.fieldErrors ?? {});
+        setMessage(res.error);
+      }
+    } catch {
+      // Usually the workspace was updated while this page was open. Answers stay in the browser.
+      writeBackup(key, answers);
+      setStale(true);
+    } finally {
+      setBusy(false);
     }
   }
 
@@ -94,6 +146,18 @@ export function FormStage({
       noValidate
     >
       {message && <Alert support>{message}</Alert>}
+      {stale && (
+        <Alert support>
+          {t("staleSubmit")}{" "}
+          <button
+            type="button"
+            className="font-semibold underline"
+            onClick={() => location.reload()}
+          >
+            {t("reload")}
+          </button>
+        </Alert>
+      )}
       {fields.map((f) => {
         if (f.kind === "section") {
           return (
@@ -208,7 +272,13 @@ export function FormStage({
           {t("submit")}
         </Button>
         <span className="text-sm text-muted" aria-live="polite">
-          {saving === "saving" ? t("saving") : saving === "saved" ? t("saved") : ""}
+          {saving === "saving"
+            ? t("saving")
+            : saving === "saved"
+              ? t("saved")
+              : saving === "failed"
+                ? t("saveFailed")
+                : ""}
         </span>
       </div>
     </form>

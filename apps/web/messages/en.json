@@ -177,6 +177,10 @@
     "resubmit": "Submit a new version",
     "saving": "Saving…",
     "saved": "Draft saved",
+    "saveFailed": "Not saved to the server yet. Your answers are kept on this device; we'll keep trying.",
+    "staleSubmit": "We couldn't submit because the workspace was just updated. Your answers are kept on this device. Reload the page and submit again.",
+    "reload": "Reload page",
+    "staleSubmitTask": "We couldn't submit because the workspace was just updated. Reload the page and submit again.",
     "required": "Required",
     "errors": {
       "required": "This is required.",
