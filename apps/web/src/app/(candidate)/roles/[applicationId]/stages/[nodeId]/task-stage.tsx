@@ -2,12 +2,13 @@
 
 import { useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { PROBLEM_ID_KEY } from "@iclabs/core/workflow";
 import { Markdown } from "@/components/markdown";
 import { Alert, Button } from "@/components/ui";
 import { submitTaskAction } from "@/app/(candidate)/stage-actions";
 import { FileUpload } from "./file-upload";
+import { SubmittedNotice, type NextStep } from "./submitted-notice";
 
 type Deliverable = {
   id: string;
@@ -33,6 +34,7 @@ export function TaskStage({
   last,
   closed,
   canSubmit,
+  nextStep,
 }: {
   applicationId: string;
   nodeId: string;
@@ -50,14 +52,18 @@ export function TaskStage({
   closed: boolean;
   canSubmit: boolean;
   closesAt: string | null;
+  nextStep: NextStep;
 }) {
   const t = useTranslations("stage");
   const router = useRouter();
   const [values, setValues] = useState<Record<string, string>>(last?.data ?? {});
   const [files, setFiles] = useState<Record<string, { id: string; name: string } | null>>({});
   const [errors, setErrors] = useState<Record<string, string>>({});
-  const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  // Set the moment a submission lands, before the refresh brings back `last`.
+  const [justSubmitted, setJustSubmitted] = useState<{ at: string; late: boolean } | null>(null);
   const [busy, setBusy] = useState(false);
+  const noticeRef = useRef<HTMLDivElement>(null);
   const editable = !closed && (canSubmit || (!!last && allowResubmit));
 
   async function submit() {
@@ -68,19 +74,31 @@ export function TaskStage({
     setBusy(false);
     if (res.ok) {
       setErrors({});
-      setMessage({
-        ok: true,
-        text: res.late ? t("submittedLate") : t("submitted", { date: ist(new Date()) }),
-      });
+      setError(null);
+      setJustSubmitted({ at: new Date().toISOString(), late: !!res.late });
       router.refresh();
+      requestAnimationFrame(() =>
+        noticeRef.current?.scrollIntoView({ behavior: "smooth", block: "center" }),
+      );
     } else {
       setErrors(res.fieldErrors ?? {});
-      setMessage({ ok: false, text: res.error });
+      setError(res.error);
     }
   }
 
+  const submittedAt = justSubmitted?.at ?? last?.submittedAt;
+
   return (
     <div className="space-y-6">
+      {submittedAt && (
+        <div ref={noticeRef}>
+          <SubmittedNotice
+            date={ist(submittedAt)}
+            late={justSubmitted?.late ?? last?.isLate ?? false}
+            next={nextStep}
+          />
+        </div>
+      )}
       {brief && (
         <section className="rounded-card border border-border bg-surface p-8 shadow-card">
           <h2 className="mb-3 font-display text-xl font-semibold">{t("brief")}</h2>
@@ -96,12 +114,7 @@ export function TaskStage({
         noValidate
       >
         <h2 className="mb-4 font-display text-xl font-semibold">{t("deliverables")}</h2>
-        {message && <Alert tone={message.ok ? "success" : "danger"}>{message.text}</Alert>}
-        {last && !message && (
-          <p className="mb-4 text-sm text-muted">
-            {t("submitted", { date: ist(last.submittedAt) })}
-          </p>
-        )}
+        {error && <Alert tone="danger">{error}</Alert>}
         <fieldset disabled={!editable || busy}>
           {problemStatements.length > 0 && (
             <div role="radiogroup" aria-labelledby="ps-label" className="mb-6">

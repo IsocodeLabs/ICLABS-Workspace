@@ -8,8 +8,10 @@ import { db } from "@/server/db";
 import { requireCandidate } from "@/server/auth/session";
 import { getCandidateStage } from "@/server/stages/candidate";
 import { candidateInterview } from "@/server/interviews";
+import { roleSpace } from "@/server/portal";
 import { AssessmentStage } from "./assessment-stage";
 import { FormStage } from "./form-stage";
+import { SubmittedNotice, type NextStep } from "./submitted-notice";
 import { TaskStage } from "./task-stage";
 
 export default async function StagePage({
@@ -26,6 +28,15 @@ export default async function StagePage({
   const interview = node.type === "interview" ? await candidateInterview(db(), applicationId, nodeId) : null;
   const submitted =
     stage.state !== "unlocked" && stage.state !== "in_progress" && stage.lastSubmission;
+  // The step the candidate can work on now, if any. Interviews are scheduled by us, by email.
+  const space = await roleSpace(db(), actor, applicationId);
+  const open =
+    space?.status === "active"
+      ? space.steps.find((s) => s.state === "current" && s.id !== nodeId && s.type !== "interview")
+      : undefined;
+  const nextStep: NextStep = open
+    ? { href: `/roles/${applicationId}/stages/${open.id}`, title: open.title }
+    : null;
 
   const common = {
     applicationId,
@@ -39,7 +50,7 @@ export default async function StagePage({
       <main className="mx-auto max-w-4xl px-4 py-10">
         <Link
           href={`/roles/${applicationId}`}
-          className="mb-6 inline-flex items-center gap-1.5 text-sm font-semibold text-muted hover:text-text"
+          className="on-liquid mb-6 inline-flex items-center gap-1.5 text-sm font-semibold hover:underline"
         >
           <ArrowLeft size={16} aria-hidden /> {t("back", { role: stage.roleTitle })}
         </Link>
@@ -62,12 +73,11 @@ export default async function StagePage({
             </p>
           )}
           {submitted && node.type !== "task" && (
-            <p className="rounded-card border border-border bg-success-bg p-6 text-success-fg">
-              {t("submitted", { date: formatIst(stage.lastSubmission!.submittedAt) })}
-              {stage.lastSubmission!.isLate && (
-                <span className="mt-1 block text-sm">{t("submittedLate")}</span>
-              )}
-            </p>
+            <SubmittedNotice
+              date={formatIst(stage.lastSubmission!.submittedAt)}
+              late={stage.lastSubmission!.isLate}
+              next={nextStep}
+            />
           )}
           {!stage.closed &&
             !submitted &&
@@ -92,6 +102,7 @@ export default async function StagePage({
                   : null
               }
               closed={stage.closed}
+              nextStep={nextStep}
             />
           )}
           {node.type === "assessment" && "questionCount" in node && !submitted && !stage.closed && (
