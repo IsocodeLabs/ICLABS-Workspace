@@ -15,14 +15,14 @@ export default async function NotificationsPage() {
         <h1 className="font-display text-3xl font-bold tracking-tight">{t("title")}</h1>
         {items.some((n) => !n.readAt) && (
           <form action={markNotificationsReadAction}>
-            <button className="text-sm font-semibold text-brand-600 hover:underline">
+            <button className="on-liquid text-sm font-semibold hover:underline">
               {t("markRead")}
             </button>
           </form>
         )}
       </div>
       {items.length === 0 ? (
-        <p className="mt-8 text-muted">{t("empty")}</p>
+        <p className="on-liquid mt-8">{t("empty")}</p>
       ) : (
         <ul className="mt-6 space-y-2">
           {items.map((n) => (

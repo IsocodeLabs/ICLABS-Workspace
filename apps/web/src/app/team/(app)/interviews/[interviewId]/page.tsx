@@ -20,7 +20,7 @@ export default async function InterviewBriefPage({ params }: { params: Promise<{
 
   return (
     <Page>
-      <Link href="/team/interviews" className="mb-4 inline-flex items-center gap-1.5 text-sm font-semibold text-muted hover:text-text">
+      <Link href="/team/interviews" className="on-liquid mb-4 inline-flex items-center gap-1.5 text-sm font-semibold hover:underline">
         <ArrowLeft size={16} aria-hidden /> Interviews
       </Link>
       <Card className="overflow-hidden p-0">
@@ -59,7 +59,7 @@ export default async function InterviewBriefPage({ params }: { params: Promise<{
         </div>
       </Card>
 
-      <h2 className="mt-8 mb-3 font-display text-xl font-bold">Their journey so far</h2>
+      <h2 className="on-liquid mt-8 mb-3 font-display text-xl font-bold">Their journey so far</h2>
       <div className="space-y-4">
         {brief.stages.map((s) => (
           <Card key={s.nodeId}>

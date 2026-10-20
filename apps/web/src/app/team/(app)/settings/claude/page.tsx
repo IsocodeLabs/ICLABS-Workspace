@@ -43,7 +43,7 @@ export default async function ClaudeAccessPage() {
           </div>
         </Card>
       </div>
-      <h2 className="mt-8 mb-3 font-display text-xl font-bold">Connected clients</h2>
+      <h2 className="on-liquid mt-8 mb-3 font-display text-xl font-bold">Connected clients</h2>
       {grants.length === 0 ? (
         <p className="text-muted">Nothing connected yet.</p>
       ) : (

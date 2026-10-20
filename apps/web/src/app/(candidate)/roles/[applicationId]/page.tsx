@@ -23,7 +23,7 @@ export default async function RoleSpacePage({
     <main className="mx-auto max-w-4xl px-4 py-10">
       <Link
         href="/dashboard"
-        className="mb-6 inline-flex items-center gap-1.5 text-sm font-semibold text-muted hover:text-text"
+        className="on-liquid mb-6 inline-flex items-center gap-1.5 text-sm font-semibold hover:underline"
       >
         <ArrowLeft size={16} aria-hidden /> {t("back")}
       </Link>
@@ -42,11 +42,11 @@ export default async function RoleSpacePage({
         </div>
       </section>
 
-      <h2 className="mb-4 mt-10 font-display text-xl font-semibold">{t("timeline")}</h2>
+      <h2 className="on-liquid mb-4 mt-10 font-display text-xl font-semibold">{t("timeline")}</h2>
       {closed ? (
         <p className="rounded-card border border-border bg-surface p-6 text-muted">{t("closed")}</p>
       ) : space.steps.length === 0 ? (
-        <p className="text-muted">{t("empty")}</p>
+        <p className="on-liquid">{t("empty")}</p>
       ) : (
         <ol className="space-y-3">
           {space.steps.map((step, i) => {

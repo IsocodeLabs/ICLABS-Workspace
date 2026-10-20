@@ -110,7 +110,7 @@ export default async function ReviewPage({ params }: { params: Promise<{ assignm
 
   return (
     <main className="mx-auto max-w-none px-6 py-6">
-      <Link href="/team/reviews" className="mb-4 inline-flex items-center gap-1.5 text-sm font-semibold text-muted hover:text-text">
+      <Link href="/team/reviews" className="on-liquid mb-4 inline-flex items-center gap-1.5 text-sm font-semibold hover:underline">
         <ArrowLeft size={16} aria-hidden /> All reviews
       </Link>
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_22rem] xl:grid-cols-[minmax(0,1fr)_26rem]">
