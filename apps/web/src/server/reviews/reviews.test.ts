@@ -16,7 +16,7 @@ import { teamActor } from "../../test/fixtures";
 import { loadActor } from "../auth/actor";
 import { createCandidateAccount } from "../auth/candidate-auth";
 import { createCycle, createRole, getBuilderData, getCycleDetail, publishDraft, saveDraft } from "../hiring/structure";
-import { submitTask } from "../stages/candidate";
+import { submitForm, submitTask } from "../stages/candidate";
 import { startApplication, type ProgressionDeps } from "../stages/progression";
 import type { AiReviewInput, AiReviewResult, AiReviewer } from "../ai/review";
 import { toSuggestion } from "../ai/review";
@@ -286,5 +286,43 @@ describe("decisions", () => {
     await runRulesNow(db, deps, admin, track.wf.id, "task", { dryRun: false });
     expect((await appStatus(apps[1]!)).currentNodeId).toBe("int");
     expect((await appStatus(apps[2]!)).currentNodeId).toBe("task");
+  });
+});
+
+describe("review context", () => {
+  // Details form → Take-home (reviewed) → Interview
+  async function formThenTask(blind: boolean) {
+    const base = process({ pool: [r1.teamMemberId] });
+    const form = createNode("form", { id: "form", title: "Details" });
+    form.config.fields = [{ id: "track", label: "Track", kind: "single_choice", required: true, options: ["Frontend", "Backend"] }];
+    const task = base.nodes.find((n) => n.id === "task")!;
+    if (task.type === "task") task.reviewers!.blind = blind;
+    const track = await newTrack({
+      ...base,
+      nodes: [form, ...base.nodes],
+      edges: [{ id: "f", from: "form", to: "task", priority: 0, when: { always: true } }, ...base.edges],
+    });
+    const c = await createCandidateAccount(db, { email: `c${Math.random()}@x.com`, name: "Meera Das" });
+    const [app] = await db
+      .insert(applications)
+      .values({ candidateId: c.candidateId, roleId: track.roleId, workflowId: track.wf.id, workflowVersionId: track.wf.publishedVersionId })
+      .returning();
+    await startApplication(db, deps, app!.id);
+    const actor = (await loadActor(db, c.userId)) as Extract<Awaited<ReturnType<typeof loadActor>>, { kind: "candidate" }>;
+    expect(await submitForm(db, deps, actor, app!.id, "form", { track: "Backend" })).toMatchObject({ ok: true });
+    expect(await submitTask(db, deps, actor, app!.id, "task", { repo: "https://github.com/a/b" })).toMatchObject({ ok: true });
+    const [asg] = await assignmentsOf(app!.id);
+    return (await getReviewView(db, r1, asg!.id))!;
+  }
+
+  it("shows the reviewer what the candidate submitted before the reviewed stage", async () => {
+    const view = await formThenTask(false);
+    expect(view.submission).toMatchObject({ data: { repo: "https://github.com/a/b" } });
+    expect(view.earlier).toHaveLength(1);
+    expect(view.earlier[0]).toMatchObject({ node: { id: "form", title: "Details" }, submission: { data: { track: "Backend" } } });
+  });
+
+  it("hides earlier steps in a blind review, since a details form identifies the candidate", async () => {
+    expect((await formThenTask(true)).earlier).toEqual([]);
   });
 });

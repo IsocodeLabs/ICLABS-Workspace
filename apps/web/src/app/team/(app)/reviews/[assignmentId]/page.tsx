@@ -8,7 +8,7 @@ import { StatusPill } from "@/components/ui";
 import { db } from "@/server/db";
 import { requireTeam } from "@/server/auth/session";
 import { aiReviewEnabled } from "@/server/ai";
-import { getReviewView, type ReviewView } from "@/server/reviews/queue";
+import { getReviewView, type ReviewView, type StageAnswers } from "@/server/reviews/queue";
 import { ReviewForm } from "./review-form";
 
 const isUrl = (v: string) => /^https?:\/\//i.test(v);
@@ -36,8 +36,7 @@ function FileLink({ id, files }: { id: string; files: NonNullable<ReviewView["su
   );
 }
 
-function Submission({ view }: { view: ReviewView }) {
-  const { node, submission, assessment } = view;
+function Submission({ node, submission, assessment }: { node: ReviewView["node"] } & Omit<StageAnswers, "versions">) {
   if (assessment) {
     return (
       <ol className="space-y-5">
@@ -169,8 +168,32 @@ export default async function ReviewPage({ params }: { params: Promise<{ assignm
 
           <Card>
             <h2 className="mb-4 font-display text-lg font-bold">Submission</h2>
-            <Submission view={view} />
+            <Submission node={node} submission={submission} assessment={assessment} />
           </Card>
+
+          {view.earlier.length > 0 && (
+            <Card>
+              <h2 className="mb-1 font-display text-lg font-bold">Earlier steps</h2>
+              <p className="mb-4 text-sm text-muted">What {candidate.label.split(" ")[0]} submitted before this stage, for context.</p>
+              <div className="space-y-3">
+                {view.earlier.map((s) => (
+                  <details key={s.node.id} className="rounded-xl border border-border px-4 py-3" open={view.earlier.length <= 3}>
+                    <summary className="flex cursor-pointer flex-wrap items-center gap-2 font-semibold">
+                      {s.node.title}
+                      {s.autoScorePct !== null && <StatusPill tone="neutral">Auto-score {Math.round(s.autoScorePct)}%</StatusPill>}
+                      {s.submission?.isLate && <StatusPill tone="warning">Late</StatusPill>}
+                      <span className="text-sm font-normal text-muted">
+                        {formatIst((s.submission?.submittedAt ?? s.assessment?.submittedAt)!)}
+                      </span>
+                    </summary>
+                    <div className="mt-4">
+                      <Submission node={s.node} submission={s.submission} assessment={s.assessment} />
+                    </div>
+                  </details>
+                ))}
+              </div>
+            </Card>
+          )}
 
           {view.others.length > 0 && (
             <Card>

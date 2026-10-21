@@ -17,9 +17,9 @@ import {
   users,
   type Db,
 } from "@iclabs/db";
-import { can, type Actor } from "@iclabs/core";
+import { can, candidatePath, type Actor, type WorkflowNode } from "@iclabs/core";
 import { integritySummary } from "../stages/candidate";
-import { isReviewable, loadPinned } from "../stages/progression";
+import { isReviewable, loadPinned, type PinnedApplication } from "../stages/progression";
 import { isIntegrityHigh } from "./context";
 
 type TeamActor = Actor & { kind: "team" };
@@ -166,43 +166,7 @@ export async function getReviewView(db: Db, actor: TeamActor, assignmentId: stri
   if (!node) return null;
   const [progress] = await db.select().from(stageProgress).where(eq(stageProgress.id, row.a.stageProgressId));
 
-  const subs = await db
-    .select()
-    .from(submissions)
-    .where(eq(submissions.stageProgressId, row.a.stageProgressId))
-    .orderBy(desc(submissions.version));
-  const latest = subs[0] ?? null;
-  const fileRows = latest?.fileIds.length
-    ? await db
-        .select({ id: files.id, filename: files.filename, size: files.size, scanStatus: files.scanStatus })
-        .from(files)
-        .where(inArray(files.id, latest.fileIds))
-    : [];
-
-  const [session] = await db
-    .select()
-    .from(assessmentSessions)
-    .where(eq(assessmentSessions.stageProgressId, row.a.stageProgressId));
-  const assessment = session
-    ? {
-        startedAt: session.startedAt,
-        submittedAt: session.submittedAt,
-        autoSubmitted: session.autoSubmitted,
-        integrity: await integritySummary(db, session.id),
-        questions: (await db.select().from(questions).where(inArray(questions.id, session.questionIds)))
-          .sort((a, b) => session.questionIds.indexOf(a.id) - session.questionIds.indexOf(b.id))
-          .map((q) => ({
-            id: q.id,
-            type: q.type,
-            body: q.body,
-            options: q.options,
-            correct: q.correct,
-            explanation: q.explanation,
-            points: q.points,
-            answer: session.answers[q.id] ?? null,
-          })),
-      }
-    : null;
+  const { submission, versions, assessment } = await stageAnswers(db, row.a.stageProgressId);
 
   const allReviews = await db
     .select({ r: reviews, reviewerEmail: teamMembers.email })
@@ -220,6 +184,9 @@ export async function getReviewView(db: Db, actor: TeamActor, assignmentId: stri
     : [];
 
   const blind = !!node.reviewers?.blind;
+  // What the candidate submitted before this stage, so it's graded in context. Hidden in blind
+  // reviews: a details form would give away who the candidate is.
+  const earlier = blind ? [] : await earlierStages(db, pinned, node.id);
   const [cand] = await db
     .select({
       name: candidates.name,
@@ -246,11 +213,10 @@ export async function getReviewView(db: Db, actor: TeamActor, assignmentId: stri
       ? { label: blindLabel(pinned.app.id), profile: null, candidateId: null }
       : { label: cand?.name ?? "", profile: cand ?? null, candidateId: pinned.app.candidateId },
     progress,
-    submission: latest
-      ? { version: latest.version, data: latest.data, submittedAt: latest.submittedAt, isLate: latest.isLate, lateByMinutes: latest.lateByMinutes, files: fileRows }
-      : null,
-    versions: subs.length,
+    submission,
+    versions,
     assessment,
+    earlier,
     integrityHigh: assessment ? isIntegrityHigh(assessment.integrity) : false,
     mine,
     ai,
@@ -259,3 +225,74 @@ export async function getReviewView(db: Db, actor: TeamActor, assignmentId: stri
 }
 
 export type ReviewView = NonNullable<Awaited<ReturnType<typeof getReviewView>>>;
+export type StageAnswers = Awaited<ReturnType<typeof stageAnswers>>;
+
+/** A stage's latest submission (with its files) or, for a timed test, the questions and answers. */
+async function stageAnswers(db: Db, stageProgressId: string) {
+  const subs = await db
+    .select()
+    .from(submissions)
+    .where(eq(submissions.stageProgressId, stageProgressId))
+    .orderBy(desc(submissions.version));
+  const latest = subs[0] ?? null;
+  const fileRows = latest?.fileIds.length
+    ? await db
+        .select({ id: files.id, filename: files.filename, size: files.size, scanStatus: files.scanStatus })
+        .from(files)
+        .where(inArray(files.id, latest.fileIds))
+    : [];
+
+  const [session] = await db
+    .select()
+    .from(assessmentSessions)
+    .where(eq(assessmentSessions.stageProgressId, stageProgressId));
+  const assessment = session
+    ? {
+        startedAt: session.startedAt,
+        submittedAt: session.submittedAt,
+        autoSubmitted: session.autoSubmitted,
+        integrity: await integritySummary(db, session.id),
+        questions: (await db.select().from(questions).where(inArray(questions.id, session.questionIds)))
+          .sort((a, b) => session.questionIds.indexOf(a.id) - session.questionIds.indexOf(b.id))
+          .map((q) => ({
+            id: q.id,
+            type: q.type,
+            body: q.body,
+            options: q.options,
+            correct: q.correct,
+            explanation: q.explanation,
+            points: q.points,
+            answer: session.answers[q.id] ?? null,
+          })),
+      }
+    : null;
+
+  return {
+    submission: latest
+      ? { version: latest.version, data: latest.data, submittedAt: latest.submittedAt, isLate: latest.isLate, lateByMinutes: latest.lateByMinutes, files: fileRows }
+      : null,
+    versions: subs.length,
+    assessment,
+  };
+}
+
+/** Every candidate-facing stage before `nodeId` that the candidate submitted, in the order they did them. */
+async function earlierStages(db: Db, pinned: PinnedApplication, nodeId: string) {
+  const path = candidatePath(pinned.config);
+  const upTo = path.findIndex((n) => n.id === nodeId);
+  const before = (upTo === -1 ? path : path.slice(0, upTo)).filter((n) => n.type !== "interview");
+  if (before.length === 0) return [];
+  const rows = await db
+    .select()
+    .from(stageProgress)
+    .where(and(eq(stageProgress.applicationId, pinned.app.id), inArray(stageProgress.nodeId, before.map((n) => n.id))));
+  const out: ({ node: WorkflowNode; autoScorePct: number | null } & StageAnswers)[] = [];
+  for (const node of before) {
+    const progress = rows.find((r) => r.nodeId === node.id);
+    if (!progress) continue;
+    const answers = await stageAnswers(db, progress.id);
+    if (!answers.submission && !answers.assessment?.submittedAt) continue;
+    out.push({ node, autoScorePct: progress.autoScorePct, ...answers });
+  }
+  return out;
+}
