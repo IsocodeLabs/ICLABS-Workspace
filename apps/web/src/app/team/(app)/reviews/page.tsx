@@ -69,7 +69,7 @@ export default async function ReviewsPage() {
             <UserPlus size={20} aria-hidden /> Needs a reviewer
           </h2>
           {unassigned.length === 0 ? (
-            <p className="text-muted">Every submitted stage has a reviewer.</p>
+            <p className="on-liquid">Every submitted stage has a reviewer.</p>
           ) : (
             <Card className="divide-y divide-border p-0">
               {unassigned.map((u) => (
