@@ -28,9 +28,10 @@ import { notify } from "../portal";
 import { buildRuleContext, stageScores } from "../reviews/context";
 import { advanceFrom, loadPinned, notifyAdmins, type PinnedApplication, type ProgressionDeps } from "../stages/progression";
 
-export type InterviewDeps = ProgressionDeps & { calendar: CalendarClient; organizerEmail: string };
+/** `calendar` is null until Google Calendar is connected: interviews still book, with the app's own invite email. */
+export type InterviewDeps = ProgressionDeps & { calendar: CalendarClient | null; organizerEmail: string };
 type TeamActor = Actor & { kind: "team" };
-type Result<T = object> = ({ ok: true } & T) | { ok: false; error: string; conflicts?: string[] };
+type Result<T = object> = ({ ok: true } & T) | { ok: false; error: string; conflicts?: string[]; needsLink?: boolean };
 
 const firstName = (n: string) => n.split(" ")[0]!;
 
@@ -123,7 +124,7 @@ export async function scheduleInterview(
   deps: InterviewDeps,
   actor: TeamActor,
   applicationId: string,
-  input: { startsAt: Date; interviewerIds: string[]; force?: boolean },
+  input: { startsAt: Date; interviewerIds: string[]; force?: boolean; meetUrl?: string },
 ): Promise<Result<{ interviewId: string }>> {
   const pinned = await loadPinned(db, applicationId);
   assertCan(actor, "write", { type: "workflow", roleId: pinned.app.roleId, workflowId: pinned.app.workflowId });
@@ -146,16 +147,37 @@ export async function scheduleInterview(
     return { ok: false, error: `Busy then: ${conflicts.join(", ")}`, conflicts };
 
   const id = ulid();
-  const { eventId, meetUrl } = await deps.calendar.createEvent({
-    requestId: id,
-    summary: `${node.config.roundName}: ${pinned.candidateName} (${pinned.roleTitle})`,
-    description: `Interview brief: ${deps.appUrl(`/team/interviews/${id}`)}`,
-    start: input.startsAt,
-    end: endsAt,
-    attendees: [...people.map((p) => p.email), pinned.email],
-    withMeet: node.config.mode === "meet",
-    location: node.config.mode === "in_person" ? node.config.address : undefined,
-  });
+  // Google Calendar adds the event to everyone's calendar and makes the Meet link. Without it
+  // (not connected yet, or down) the interview still books: the candidate gets the app's own
+  // invite (.ics) and the panel an in-app notice, but a Meet interview then needs a pasted link.
+  let eventId: string | null = null;
+  let meetUrl = input.meetUrl ?? null;
+  let calendarError: string | null = deps.calendar ? null : "Google Calendar isn't connected yet";
+  if (deps.calendar) {
+    try {
+      const ev = await deps.calendar.createEvent({
+        requestId: id,
+        summary: `${node.config.roundName}: ${pinned.candidateName} (${pinned.roleTitle})`,
+        description: `Interview brief: ${deps.appUrl(`/team/interviews/${id}`)}`,
+        start: input.startsAt,
+        end: endsAt,
+        attendees: [...people.map((p) => p.email), pinned.email],
+        withMeet: node.config.mode === "meet" && !input.meetUrl,
+        location: node.config.mode === "in_person" ? node.config.address : undefined,
+      });
+      eventId = ev.eventId;
+      meetUrl = input.meetUrl ?? ev.meetUrl;
+    } catch (err) {
+      console.error("[interviews] calendar event failed", err instanceof Error ? err.message : err);
+      calendarError = "Google Calendar didn't accept the event";
+    }
+  }
+  if (node.config.mode === "meet" && !meetUrl)
+    return {
+      ok: false,
+      needsLink: true,
+      error: `${calendarError ?? "Google Calendar didn't return a Meet link"}, so there's no meeting link. Paste a Google Meet or Zoom link to book anyway.`,
+    };
   try {
     await db.insert(interviews).values({
       id,
@@ -171,10 +193,12 @@ export async function scheduleInterview(
       meetUrl,
       calendarEventId: eventId,
       createdBy: actor.userId,
+      // Same clock as the reminder sweep, which compares booking time with start time.
+      createdAt: now,
     });
   } catch {
     // Someone else booked this stage a moment ago: undo our calendar event.
-    await deps.calendar.cancelEvent(eventId).catch(() => {});
+    if (eventId) await deps.calendar?.cancelEvent(eventId).catch(() => {});
     return { ok: false, error: "This candidate was just scheduled by someone else." };
   }
   await db.update(stageProgress).set({ state: "in_progress" }).where(eq(stageProgress.id, progress.id));
@@ -203,7 +227,12 @@ export async function scheduleInterview(
     action: "interview_scheduled",
     entity: "interview",
     entityId: id,
-    after: { startsAt: input.startsAt.toISOString(), interviewerIds: people.map((p) => p.id), overrodeConflicts: conflicts.length > 0 },
+    after: {
+      startsAt: input.startsAt.toISOString(),
+      interviewerIds: people.map((p) => p.id),
+      overrodeConflicts: conflicts.length > 0,
+      calendarEvent: !!eventId,
+    },
   });
   return { ok: true, interviewId: id };
 }
@@ -219,7 +248,8 @@ async function findConflicts(
   const internal = await internalConflicts(db, people.map((p) => p.id), start, end, exceptId);
   let external: string[] = [];
   try {
-    const busy = await deps.calendar.freeBusy(people.map((p) => p.email), start, end);
+    // Without Google Calendar only clashes with other workspace interviews are known.
+    const busy = deps.calendar ? await deps.calendar.freeBusy(people.map((p) => p.email), start, end) : {};
     external = people
       .filter((p) => !internal.includes(p.id))
       .filter((p) => (busy[p.email] ?? []).some((w) => overlaps(w, { start, end })))
@@ -249,7 +279,7 @@ export async function rescheduleInterview(
   deps: InterviewDeps,
   actor: TeamActor,
   interviewId: string,
-  input: { startsAt: Date; interviewerIds?: string[]; force?: boolean },
+  input: { startsAt: Date; interviewerIds?: string[]; force?: boolean; meetUrl?: string },
 ): Promise<Result> {
   const loaded = await loadInterview(db, actor, interviewId);
   if (!loaded) return { ok: false, error: "Interview not found." };
@@ -263,8 +293,8 @@ export async function rescheduleInterview(
   const conflicts = await findConflicts(db, deps, people, input.startsAt, endsAt, iv.id);
   if (conflicts.length && !input.force) return { ok: false, error: `Busy then: ${conflicts.join(", ")}`, conflicts };
 
-  let meetUrl = iv.meetUrl;
-  if (iv.calendarEventId) {
+  let meetUrl = input.meetUrl ?? iv.meetUrl;
+  if (iv.calendarEventId && deps.calendar) {
     const res = await deps.calendar.updateEvent(iv.calendarEventId, {
       summary: `${iv.roundName}: ${pinned.candidateName} (${pinned.roleTitle})`,
       description: `Interview brief: ${deps.appUrl(`/team/interviews/${iv.id}`)}`,
@@ -274,7 +304,7 @@ export async function rescheduleInterview(
       withMeet: iv.mode === "meet",
       location: iv.mode === "in_person" ? (iv.location ?? undefined) : undefined,
     });
-    meetUrl = res.meetUrl ?? meetUrl;
+    meetUrl = input.meetUrl ?? res.meetUrl ?? meetUrl;
   }
   await db
     .update(interviews)
@@ -309,7 +339,7 @@ export async function cancelInterview(db: Db, deps: InterviewDeps, actor: TeamAc
   if (!loaded) return { ok: false, error: "Interview not found." };
   const { iv, pinned } = loaded;
   if (iv.status !== "scheduled") return { ok: false, error: "Only upcoming interviews can be cancelled." };
-  if (iv.calendarEventId) await deps.calendar.cancelEvent(iv.calendarEventId);
+  if (iv.calendarEventId && deps.calendar) await deps.calendar.cancelEvent(iv.calendarEventId);
   await db.update(interviews).set({ status: "cancelled" }).where(eq(interviews.id, iv.id));
   await db.update(stageProgress).set({ state: "unlocked" }).where(eq(stageProgress.id, iv.stageProgressId));
   await db.update(applications).set({ status: "active" }).where(eq(applications.id, iv.applicationId));

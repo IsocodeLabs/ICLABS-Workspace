@@ -23,6 +23,8 @@ function SlotDialog({
   initialPanel,
   people,
   exceptInterviewId,
+  meet,
+  initialLink = "",
   onSubmit,
   onClose,
 }: {
@@ -31,10 +33,15 @@ function SlotDialog({
   initialPanel: string[];
   people: Person[];
   exceptInterviewId?: string;
-  onSubmit: (input: { startsAt: string; interviewerIds: string[]; force?: boolean }) => Promise<InterviewActionResult>;
+  /** A Google Meet interview: offer a link field for when Calendar can't make one. */
+  meet: boolean;
+  initialLink?: string;
+  onSubmit: (input: { startsAt: string; interviewerIds: string[]; force?: boolean; meetUrl?: string }) => Promise<InterviewActionResult>;
   onClose: (done?: boolean) => void;
 }) {
   const [when, setWhen] = useState("");
+  const [link, setLink] = useState(initialLink);
+  const [needsLink, setNeedsLink] = useState(false);
   const [panel, setPanel] = useState<string[]>(initialPanel);
   const [busy, setBusy] = useState<string[] | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -60,11 +67,15 @@ function SlotDialog({
   const submit = (force: boolean) =>
     start(async () => {
       setError(null);
-      const res = await onSubmit({ startsAt, interviewerIds: panel, force });
+      const res = await onSubmit({ startsAt, interviewerIds: panel, force, meetUrl: link.trim() || undefined });
       if (res.ok) onClose(true);
       else {
         setError(res.error);
         if (res.conflicts) setBusy(res.conflicts);
+        if (res.needsLink) {
+          setNeedsLink(true);
+          document.getElementById("meet-link")?.focus();
+        }
       }
     });
 
@@ -113,8 +124,26 @@ function SlotDialog({
           <span className="inline-flex items-center gap-1.5 text-warning-fg"><AlertTriangle size={16} aria-hidden /> Busy: {busy.join(", ")}</span>
         )}
       </div>
-      <p className="mt-1 text-xs text-muted">
-        Creates a Google Calendar event with a Meet link for the panel and emails the candidate an invite (.ics).
+      {meet && (
+        <>
+          <label className="mt-3 mb-1 block text-sm font-semibold" htmlFor="meet-link">
+            Meeting link {!needsLink && <span className="font-normal text-muted">(optional)</span>}
+          </label>
+          <Input
+            id="meet-link"
+            type="url"
+            placeholder="https://meet.google.com/…"
+            value={link}
+            onChange={(e) => setLink(e.target.value)}
+            aria-invalid={needsLink && !link.trim()}
+          />
+          <p className="mt-1 text-xs text-muted">
+            Leave empty to have Google Calendar create a Meet link. Paste one if Calendar isn&apos;t connected.
+          </p>
+        </>
+      )}
+      <p className="mt-3 text-xs text-muted">
+        Adds a Google Calendar event for the panel when Calendar is connected, and emails the candidate an invite (.ics).
       </p>
     </Dialog>
   );
@@ -124,12 +153,14 @@ export function ScheduleButton({
   applicationId,
   candidateName,
   durationMin,
+  mode,
   pool,
   people,
 }: {
   applicationId: string;
   candidateName: string;
   durationMin: number;
+  mode: string;
   pool: string[];
   people: Person[];
 }) {
@@ -146,6 +177,7 @@ export function ScheduleButton({
           durationMin={durationMin}
           initialPanel={pool.filter((id) => people.some((p) => p.id === id))}
           people={people}
+          meet={mode === "meet"}
           onSubmit={(input) => scheduleAction(applicationId, input)}
           onClose={(done) => {
             setOpen(false);
@@ -162,7 +194,7 @@ export function InterviewControls({
   people,
   mode,
 }: {
-  interview: { id: string; durationMin: number; interviewerIds: string[] };
+  interview: { id: string; durationMin: number; interviewerIds: string[]; mode?: string; meetUrl?: string | null };
   people: Person[];
   mode: "upcoming" | "outcome";
 }) {
@@ -199,6 +231,8 @@ export function InterviewControls({
           initialPanel={interview.interviewerIds}
           people={people}
           exceptInterviewId={interview.id}
+          meet={interview.mode === "meet"}
+          initialLink={interview.meetUrl ?? ""}
           onSubmit={(input) => rescheduleAction(interview.id, input)}
           onClose={(done) => {
             setMoving(false);
@@ -209,7 +243,7 @@ export function InterviewControls({
       <ConfirmDialog
         open={cancelling}
         title="Cancel this interview?"
-        body="The calendar event is removed and the candidate gets a cancellation email. They go back to “Ready to schedule”."
+        body="The candidate gets a cancellation email (and any calendar event is removed). They go back to “Ready to schedule”."
         confirmLabel="Cancel interview"
         onCancel={() => setCancelling(false)}
         onConfirm={() => {

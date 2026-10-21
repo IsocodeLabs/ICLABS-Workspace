@@ -36,7 +36,7 @@ export default async function InterviewsPage() {
         <section className="mb-10">
           <h2 className="mb-3 font-display text-xl font-bold">Ready to schedule</h2>
           {board.ready.length === 0 ? (
-            <p className="text-muted">Nobody is waiting for an interview slot.</p>
+            <p className="on-liquid">Nobody is waiting for an interview slot.</p>
           ) : (
             <Card className="divide-y divide-border p-0">
               {board.ready.map((r) => (
@@ -51,6 +51,7 @@ export default async function InterviewsPage() {
                     applicationId={r.applicationId}
                     candidateName={r.candidateName}
                     durationMin={r.durationMin}
+                    mode={r.mode}
                     pool={r.pool}
                     people={people}
                   />
@@ -107,7 +108,13 @@ export default async function InterviewsPage() {
                       )}
                       {manages && (
                         <InterviewControls
-                          interview={{ id: i.id, durationMin: Math.round((i.endsAt.getTime() - i.startsAt.getTime()) / 60_000), interviewerIds: i.interviewerIds }}
+                          interview={{
+                            id: i.id,
+                            durationMin: Math.round((i.endsAt.getTime() - i.startsAt.getTime()) / 60_000),
+                            interviewerIds: i.interviewerIds,
+                            mode: i.mode,
+                            meetUrl: i.meetUrl,
+                          }}
                           people={people}
                           mode="upcoming"
                         />

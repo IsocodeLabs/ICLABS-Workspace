@@ -109,6 +109,38 @@ describe("scheduling", () => {
     expect(await scheduleInterview(db, deps(), admin, app, { startsAt: at(18), interviewerIds: [alice.teamMemberId] })).toMatchObject({ ok: false });
   });
 
+  it("books without Google Calendar, asking for a link when it's a Meet interview", async () => {
+    const app = await newCandidate();
+    const noCalendar = { ...deps(), calendar: null };
+    const link = "https://meet.google.com/abc-defg-hij";
+
+    const needsLink = await scheduleInterview(db, noCalendar, admin, app, { startsAt: at(19), interviewerIds: [bob.teamMemberId] });
+    expect(needsLink).toMatchObject({ ok: false, needsLink: true });
+
+    const ok = await scheduleInterview(db, noCalendar, admin, app, { startsAt: at(19), interviewerIds: [bob.teamMemberId], meetUrl: link });
+    if (!ok.ok) throw new Error(ok.error);
+    expect(await ivOf(ok.interviewId)).toMatchObject({ status: "scheduled", calendarEventId: null, meetUrl: link });
+    expect(queueEmail.mock.calls.at(-1)![0]).toMatchObject({ templateKey: "interview_scheduled", vars: expect.objectContaining({ where: link }) });
+
+    // Moving and cancelling don't need the calendar either.
+    expect(await rescheduleInterview(db, noCalendar, admin, ok.interviewId, { startsAt: at(20) })).toMatchObject({ ok: true });
+    expect(await cancelInterview(db, noCalendar, admin, ok.interviewId)).toMatchObject({ ok: true });
+    expect((await appOf(app)).status).toBe("active");
+  });
+
+  it("still books when Google Calendar rejects the event, given a link", async () => {
+    const app = await newCandidate();
+    const failing = { ...deps(), calendar: { ...calendar, createEvent: async () => Promise.reject(new Error("calendar POST /events → 403")) } };
+    const res = await scheduleInterview(db, failing, admin, app, { startsAt: at(21), interviewerIds: [bob.teamMemberId] });
+    expect(res).toMatchObject({ ok: false, needsLink: true, error: expect.stringContaining("didn't accept") });
+    const ok = await scheduleInterview(db, failing, admin, app, {
+      startsAt: at(21),
+      interviewerIds: [bob.teamMemberId],
+      meetUrl: "https://zoom.us/j/123",
+    });
+    expect(ok).toMatchObject({ ok: true });
+  });
+
   it("catches double-booking inside the workspace too", async () => {
     const a = await newCandidate();
     const b = await newCandidate();
