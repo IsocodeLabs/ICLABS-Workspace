@@ -95,6 +95,11 @@ export default async function RoleSpacePage({
           })}
         </ol>
       )}
+      {!closed && space.moreAfterReview && (
+        <p className="mt-3 rounded-card border border-border bg-surface p-5 text-muted">
+          {t("afterReview")}
+        </p>
+      )}
     </main>
   );
 }

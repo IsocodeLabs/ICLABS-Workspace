@@ -20,6 +20,7 @@ import {
 import {
   can,
   evaluateEdges,
+  formatIst,
   workflowConfigSchema,
   type Actor,
   type RuleContext,
@@ -143,6 +144,28 @@ export async function decide(
       .update(applications)
       .set({ currentNodeId: target.id })
       .where(eq(applications.id, applicationId));
+    // A person moved them on (e.g. shortlisted): tell them by email. Interviews email on booking.
+    if (target.visibility === "candidate" && target.type !== "interview") {
+      const [opened] = await db
+        .select({ dueAt: stageProgress.dueAt })
+        .from(stageProgress)
+        .where(
+          and(eq(stageProgress.applicationId, applicationId), eq(stageProgress.nodeId, target.id)),
+        );
+      await deps.queueEmail({
+        to: pinned.email,
+        templateKey: "stage_unlocked",
+        userId: pinned.userId,
+        applicationId,
+        vars: {
+          first_name: pinned.candidateName.split(" ")[0]!,
+          role: pinned.roleTitle,
+          stage: target.title,
+          deadline: opened?.dueAt ? formatIst(opened.dueAt) : "the deadline shown in the workspace",
+          stage_url: deps.appUrl(`/roles/${applicationId}/stages/${target.id}`),
+        },
+      });
+    }
   }
 
   await db.insert(decisions).values({

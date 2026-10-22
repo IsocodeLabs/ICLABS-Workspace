@@ -107,7 +107,7 @@ It works once and expires in 10 minutes. If you didn't just sign in, change your
 The Isocode Labs hiring team`,
   },
   stage_unlocked: {
-    description: "A new stage is open for the candidate",
+    description: "The team moved the candidate to a new stage (e.g. shortlisted for the task)",
     subject: "{{role}}: your next step, {{stage}}, is open",
     body: `Hi {{first_name}},
 

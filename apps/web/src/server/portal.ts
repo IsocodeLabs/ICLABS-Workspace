@@ -12,7 +12,7 @@ import {
   workflowVersions,
   type Db,
 } from "@iclabs/db";
-import { candidatePath, workflowConfigSchema, type Actor } from "@iclabs/core";
+import { candidatePath, workflowConfigSchema, type Actor, type WorkflowConfig } from "@iclabs/core";
 import { assertCan, audit } from "./audit";
 import { versionConfig } from "./stages/progression";
 
@@ -105,8 +105,14 @@ export async function roleSpace(db: Db, actor: CandidateActor, applicationId: st
   const config = row.app.workflowVersionId
     ? await versionConfig(db, row.app.workflowVersionId)
     : null;
-  const steps = config ? candidatePath(config) : [];
-  const currentIndex = steps.findIndex((s) => s.id === row.app.currentNodeId);
+  const path = config ? candidatePath(config) : [];
+  const currentIndex = path.findIndex((s) => s.id === row.app.currentNodeId);
+  // Stages after a team decision (e.g. shortlisting) stay hidden until the candidate is moved
+  // there: candidates see what's ahead of them now, not rounds they may never reach.
+  const gate = path.findIndex(
+    (s, i) => i >= Math.max(currentIndex, 0) && !!config && decidedByTeam(config, s.id),
+  );
+  const steps = gate === -1 ? path : path.slice(0, gate + 1);
   return {
     applicationId: row.app.id,
     status: row.app.status,
@@ -116,6 +122,8 @@ export async function roleSpace(db: Db, actor: CandidateActor, applicationId: st
       duration: row.role.duration,
       location: row.role.location,
     },
+    /** More stages follow a team decision; the candidate hears by email either way. */
+    moreAfterReview: steps.length < path.length,
     steps: steps.map((s, i) => ({
       id: s.id,
       title: s.title,
@@ -131,6 +139,14 @@ export async function roleSpace(db: Db, actor: CandidateActor, applicationId: st
               : ("upcoming" as const),
     })),
   };
+}
+
+/** The first rule after this stage always sends candidates to a team decision. */
+function decidedByTeam(config: WorkflowConfig, nodeId: string) {
+  const [first] = config.edges
+    .filter((e) => e.from === nodeId)
+    .sort((a, b) => a.priority - b.priority);
+  return !!first && first.to === "NEEDS_DECISION" && "always" in first.when;
 }
 
 // ─── Profile ─────────────────────────────────────────────────────────────────
