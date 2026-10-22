@@ -3,6 +3,7 @@ import {
   asc,
   desc,
   eq,
+  ilike,
   inArray,
   ne,
   applications,
@@ -19,7 +20,7 @@ import {
 } from "@iclabs/db";
 import { createNode, emptyWorkflow, type Actor, type WorkflowConfig } from "@iclabs/core";
 import { audit } from "../audit";
-import { startApplication } from "../stages/progression";
+import { startApplication, versionConfig } from "../stages/progression";
 import { ROLE_PROCESSES } from "./role-processes";
 import {
   createCycle,
@@ -79,62 +80,194 @@ export async function setupCareersRoles(
     const full = ROLE_PROCESSES[want.slug];
     if (full) await syncTemplate(db, actor, full.template, full.description, full.build(pool));
 
-    let [role] = await db.select().from(roles).where(eq(roles.slug, want.slug));
-    if (!role) {
-      role = await createRole(db, actor, want);
-      log(`created role ${want.slug}`);
-    }
-    let [cycle] = await db
-      .select()
-      .from(cycles)
-      .where(and(eq(cycles.roleId, role!.id), eq(cycles.status, "open")))
-      .orderBy(desc(cycles.createdAt))
-      .limit(1);
-    if (!cycle) {
-      cycle = await createCycle(db, actor, { roleId: role!.id, name: "October 2026" });
-      await setCycleStatus(db, actor, { cycleId: cycle!.id, status: "open" });
-      log(`opened round for ${want.slug}`);
-    }
-    const { tracks } = await getCycleDetail(db, actor, cycle!.id);
-    const track = tracks.find((t) => t.isDefault) ?? tracks[0];
-    if (!track) throw new Error(`${want.slug}: round has no track`);
+    const { role, duplicate } = await findRole(db, want);
+    const real = role ?? (await createRole(db, actor, want));
+    if (!role) log(`created role ${want.slug}`);
+    const track = await openTrack(db, actor, real, want.slug, log);
 
-    if (!full) {
-      if (track.publishedVersionId) {
-        log(`${want.slug}: track already set up; left as is`);
-        continue;
-      }
+    if (full) await installOnce(db, actor, want.slug, track.id, full.build(pool), log);
+    else if (!track.publishedVersionId) {
       await publish(db, actor, track.id, starterTrack());
       log(`${want.slug}: starter track published`);
-      continue;
-    }
+    } else log(`${want.slug}: track already set up; left as is`);
 
-    const [done] = await db
-      .select({ id: auditLog.id })
-      .from(auditLog)
-      .where(and(eq(auditLog.action, INSTALLED), eq(auditLog.entityId, track.id)))
-      .limit(1);
-    if (done) {
-      log(`${want.slug}: process installed earlier; left as is`);
-      continue;
-    }
-    const data = await getBuilderData(db, actor, track.id);
-    if (!hasProcess(data.published?.config)) await publish(db, actor, track.id, full.build(pool));
-    const [wf] = await db
-      .select({ versionId: workflows.publishedVersionId })
-      .from(workflows)
-      .where(eq(workflows.id, track.id));
-    const moved = await moveUnstarted(db, track.id, wf!.versionId!);
-    await audit(db, {
-      actorUserId: actor.userId,
-      via: "system",
-      action: INSTALLED,
-      entity: "workflow",
-      entityId: track.id,
-      after: { role: want.slug, versionId: wf!.versionId, movedCandidates: moved },
-    });
-    log(`${want.slug}: process published; ${moved} candidate(s) moved to it`);
+    if (duplicate) await retireDuplicate(db, actor, duplicate, real.id, track.id, want.slug, log);
   }
+}
+
+/**
+ * The team's role for a careers role: the oldest active role with its title, else the one with its
+ * slug. A newer role holding the careers slug next to an older same-titled one is a duplicate
+ * (an earlier version of this setup created those) and is folded into the real one.
+ */
+async function findRole(db: Db, want: { slug: string; title: string }) {
+  const titled = await db
+    .select()
+    .from(roles)
+    .where(
+      and(ilike(roles.title, want.title.replace(/[\\%_]/g, "\\$&")), eq(roles.status, "active")),
+    )
+    .orderBy(asc(roles.createdAt));
+  const [bySlug] = await db.select().from(roles).where(eq(roles.slug, want.slug));
+  const role = titled[0] ?? bySlug ?? null;
+  const duplicate = bySlug && role && bySlug.id !== role.id ? bySlug : null;
+  return { role, duplicate };
+}
+
+/** Where the role's invites go: its newest open round's default track (a round is opened if none). */
+async function openTrack(
+  db: Db,
+  actor: Actor,
+  role: typeof roles.$inferSelect,
+  slug: string,
+  log: (msg: string) => void,
+) {
+  let [cycle] = await db
+    .select()
+    .from(cycles)
+    .where(and(eq(cycles.roleId, role.id), eq(cycles.status, "open")))
+    .orderBy(desc(cycles.createdAt))
+    .limit(1);
+  if (!cycle) {
+    cycle = await createCycle(db, actor, { roleId: role.id, name: "October 2026" });
+    await setCycleStatus(db, actor, { cycleId: cycle!.id, status: "open" });
+    log(`opened round for ${slug}`);
+  }
+  const { tracks } = await getCycleDetail(db, actor, cycle!.id);
+  const track = tracks.find((t) => t.isDefault) ?? tracks[0];
+  if (!track) throw new Error(`${slug}: round has no track`);
+  return track;
+}
+
+/** Publishes the full process on a track once (recorded in the audit log) and moves unstarted candidates. */
+async function installOnce(
+  db: Db,
+  actor: Actor & { kind: "team" },
+  slug: string,
+  trackId: string,
+  config: WorkflowConfig,
+  log: (msg: string) => void,
+) {
+  const [done] = await db
+    .select({ id: auditLog.id })
+    .from(auditLog)
+    .where(and(eq(auditLog.action, INSTALLED), eq(auditLog.entityId, trackId)))
+    .limit(1);
+  if (done) {
+    log(`${slug}: process installed earlier on track ${trackId}; left as is`);
+    return;
+  }
+  const data = await getBuilderData(db, actor, trackId);
+  const already = hasProcess(data.published?.config);
+  if (!already) await publish(db, actor, trackId, config);
+  const [wf] = await db
+    .select({ versionId: workflows.publishedVersionId })
+    .from(workflows)
+    .where(eq(workflows.id, trackId));
+  const moved = await moveUnstarted(db, trackId, wf!.versionId!);
+  await audit(db, {
+    actorUserId: actor.userId,
+    via: "system",
+    action: INSTALLED,
+    entity: "workflow",
+    entityId: trackId,
+    after: { role: slug, versionId: wf!.versionId, movedCandidates: moved },
+  });
+  log(
+    `${slug}: ${already ? "process was already there" : "process published"} on track ${trackId}; ${moved} candidate(s) moved to it`,
+  );
+}
+
+const isEmptyStarter = (c: WorkflowConfig) =>
+  c.nodes.length === 1 && c.nodes[0]!.type === "form" && c.nodes[0]!.config.fields.length === 0;
+
+/**
+ * Folds a duplicate role into the real one: its candidates move to the real role's track, then
+ * it loses the careers slug (so careers invites match the real role again), and, once empty, is
+ * renamed, archived and its rounds closed. Candidates on an empty starter form restart on the real
+ * process (they had nothing to lose); others keep their progress when the real track has the same
+ * stages, and otherwise stay put.
+ */
+async function retireDuplicate(
+  db: Db,
+  actor: Actor & { kind: "team" },
+  dup: typeof roles.$inferSelect,
+  realRoleId: string,
+  realTrackId: string,
+  slug: string,
+  log: (msg: string) => void,
+) {
+  const [target] = await db
+    .select({ versionId: workflows.publishedVersionId })
+    .from(workflows)
+    .where(eq(workflows.id, realTrackId));
+  if (!target?.versionId) throw new Error(`${slug}: the real track isn't published`);
+  const realStages = new Set((await versionConfig(db, target.versionId)).nodes.map((n) => n.id));
+  const deps = { queueEmail: async () => "", appUrl: (p: string) => p };
+  const repin = {
+    roleId: realRoleId,
+    workflowId: realTrackId,
+    workflowVersionId: target.versionId,
+  };
+
+  let moved = 0;
+  let kept = 0;
+  for (const app of await db.select().from(applications).where(eq(applications.roleId, dup.id))) {
+    const config = app.workflowVersionId ? await versionConfig(db, app.workflowVersionId) : null;
+    const progress = await db
+      .select()
+      .from(stageProgress)
+      .where(eq(stageProgress.applicationId, app.id));
+    const [clash] = await db
+      .select({ id: applications.id })
+      .from(applications)
+      .where(
+        and(
+          eq(applications.candidateId, app.candidateId),
+          eq(applications.workflowId, realTrackId),
+        ),
+      );
+    if (!config || isEmptyStarter(config)) {
+      if (clash) await db.delete(applications).where(eq(applications.id, app.id));
+      else {
+        await db.delete(stageProgress).where(eq(stageProgress.applicationId, app.id));
+        await db
+          .update(applications)
+          .set({ ...repin, currentNodeId: null, status: "active" })
+          .where(eq(applications.id, app.id));
+        await startApplication(db, deps, app.id);
+      }
+      moved++;
+    } else if (!clash && progress.every((p) => realStages.has(p.nodeId))) {
+      await db.update(applications).set(repin).where(eq(applications.id, app.id));
+      moved++;
+    } else kept++;
+  }
+
+  const empty = kept === 0;
+  await db
+    .update(roles)
+    .set({
+      slug: `${dup.slug}-unused-${dup.id.slice(-6).toLowerCase()}`,
+      ...(empty ? { title: `${dup.title} (unused duplicate)`, status: "archived" as const } : {}),
+    })
+    .where(eq(roles.id, dup.id));
+  if (empty)
+    await db
+      .update(cycles)
+      .set({ status: "closed" })
+      .where(and(eq(cycles.roleId, dup.id), eq(cycles.status, "open")));
+  await audit(db, {
+    actorUserId: actor.userId,
+    via: "system",
+    action: "role_duplicate_retired",
+    entity: "role",
+    entityId: dup.id,
+    after: { slug, intoRole: realRoleId, movedCandidates: moved, keptCandidates: kept },
+  });
+  log(
+    `${slug}: duplicate role ${dup.id} retired; ${moved} candidate(s) moved to the real role, ${kept} left on it`,
+  );
 }
 
 async function publish(db: Db, actor: Actor, workflowId: string, config: WorkflowConfig) {

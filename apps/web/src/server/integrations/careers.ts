@@ -91,7 +91,14 @@ export async function resolveRoleSlug(
   const [byTitle] = await db
     .select({ slug: roles.slug })
     .from(roles)
-    .where(ilike(roles.title, input.roleTitle.replace(/[\\%_]/g, "\\$&")))
+    .where(
+      and(
+        ilike(roles.title, input.roleTitle.replace(/[\\%_]/g, "\\$&")),
+        eq(roles.status, "active"),
+      ),
+    )
+    // The oldest active role with the title: the team's own, never a later duplicate.
+    .orderBy(asc(roles.createdAt))
     .limit(1);
   return byTitle?.slug ?? null;
 }
