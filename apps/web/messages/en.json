@@ -83,8 +83,8 @@
   },
   "dashboard": {
     "title": "Your roles",
-    "subtitle": "You can only see roles you've been shortlisted for.",
-    "empty": "You haven't been shortlisted for a role yet.",
+    "subtitle": "Your applications at Isocode Labs. Open one to see your next step.",
+    "empty": "No applications here yet.",
     "status": {
       "active": "In progress",
       "needs_decision": "Under review",

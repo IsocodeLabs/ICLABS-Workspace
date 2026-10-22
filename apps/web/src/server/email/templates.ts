@@ -33,10 +33,10 @@ export type Template = { subject: string; body: string; description: string };
 export const DEFAULT_TEMPLATES: Record<TemplateKey, Template> = {
   welcome: {
     description: "First invite: login ID and temporary password",
-    subject: "You're shortlisted for {{roles}} at Isocode Labs: your workspace login",
+    subject: "Next step in your {{roles}} application at Isocode Labs: your workspace login",
     body: `Hi {{first_name}},
 
-Congratulations! You've been shortlisted for {{roles}} at Isocode Labs. Your next steps happen in the Isocode Workspace.
+Thanks for applying for {{roles}} at Isocode Labs. The next stage of your application happens in the Isocode Workspace, where you'll find each step and its deadline.
 
 Login ID: {{email}}
 Temporary password: {{temp_password}}
@@ -50,11 +50,11 @@ Questions? Just reply to this email.
 The Isocode Labs hiring team`,
   },
   role_added: {
-    description: "An existing candidate is shortlisted for another role",
-    subject: "You're also shortlisted for {{role}} at Isocode Labs",
+    description: "An existing candidate is invited to another role",
+    subject: "Next step in your {{role}} application at Isocode Labs",
     body: `Hi {{first_name}},
 
-Good news: you've also been shortlisted for {{role}}. It's now on your workspace dashboard, next to your other roles. Sign in with your existing password.
+Your {{role}} application is now on your workspace dashboard, next to your other roles. Sign in with your existing password to continue.
 
 [[button:Open your dashboard|{{login_url}}]]
 

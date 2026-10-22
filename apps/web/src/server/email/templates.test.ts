@@ -17,7 +17,7 @@ describe("renderEmail", () => {
       login_url: "https://workspace.isocodelabs.com/login",
     });
     expect(out.subject).toBe(
-      "You're shortlisted for SDE Intern at Isocode Labs: your workspace login",
+      "Next step in your SDE Intern application at Isocode Labs: your workspace login",
     );
     expect(out.text).toContain("Temporary password: Kx7m-Pq4t-Wr9z");
     expect(out.text).toContain("Sign in to the workspace: https://workspace.isocodelabs.com/login");
