@@ -10,14 +10,15 @@
   },
   "login": {
     "title": "Sign in to your workspace",
-    "subtitle": "Use the email you applied with and the password from your invite email.",
+    "subtitle": "Use the email you applied with and the temporary password from your invite email. It's case-sensitive: copy it exactly, dashes included.",
     "email": "Email",
     "password": "Password",
     "submit": "Sign in",
     "forgot": "Forgot your password?",
+    "showPassword": "Show password",
     "teamLink": "Isocode team member? Sign in here",
     "errors": {
-      "invalid": "Email or password is incorrect.",
+      "invalid": "Email or password is incorrect. Check the capital letters in your temporary password, or click “Forgot your password?” below and we'll email you a new one.",
       "locked": "Too many attempts. Your account is locked for {minutes} minutes. We've emailed you in case this wasn't you.",
       "temp_expired": "Your temporary password has expired. Write to hiring@isocodelabs.com and we'll send a new one.",
       "rate_limited": "Too many attempts. Please wait {minutes} minute(s) and try again."

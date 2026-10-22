@@ -8,6 +8,7 @@ import {
   createCandidateAccount,
   issueTempPassword,
   signInCandidate,
+  tempPasswordAttempts,
   type AuthNotifier,
 } from "./candidate-auth";
 
@@ -83,6 +84,40 @@ describe("signInCandidate", () => {
       ok: true,
       mustChangePassword: true,
     });
+  });
+
+  it("forgives copy/typing slips in the temporary password", async () => {
+    const { tempPassword } = await newCandidate("slips@example.com");
+    const variants = [
+      ` ${tempPassword}\n`, // pasted with a space and line break
+      tempPassword.replaceAll("-", "–"), // en dashes from a mail app
+      tempPassword.replaceAll("-", ""), // dashes left out
+      tempPassword.charAt(0) === tempPassword.charAt(0).toUpperCase() &&
+      /[A-Z]/.test(tempPassword.charAt(0))
+        ? tempPassword.charAt(0).toLowerCase() + tempPassword.slice(1)
+        : tempPassword.charAt(0).toUpperCase() + tempPassword.slice(1), // phone capitalised it
+    ];
+    for (const typed of variants) {
+      expect(await signIn("slips@example.com", typed)).toEqual({
+        ok: true,
+        mustChangePassword: true,
+      });
+    }
+  });
+
+  it("still refuses a genuinely wrong temporary password", async () => {
+    const { tempPassword } = await newCandidate("wrongtemp@example.com");
+    const wrong = tempPassword.slice(0, -1) + (tempPassword.endsWith("A") ? "B" : "A");
+    expect(await signIn("wrongtemp@example.com", wrong)).toEqual({ ok: false, reason: "invalid" });
+  });
+
+  it("only tries a few variants of a temporary password", () => {
+    expect(tempPasswordAttempts(" abcd–EFGH–jk23 ")).toEqual([
+      " abcd–EFGH–jk23 ",
+      "abcd-EFGH-jk23",
+      "Abcd-EFGH-jk23",
+    ]);
+    expect(tempPasswordAttempts("abcdEFGHjk23")).toContain("abcd-EFGH-jk23");
   });
 
   it("gives the same generic error for a wrong password and an unknown email", async () => {

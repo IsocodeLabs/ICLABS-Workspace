@@ -114,6 +114,27 @@ export type SignInDeps = {
 };
 
 /**
+ * What to try for a temporary password typed or pasted from the invite email, most likely
+ * first: as typed; cleaned (spaces, line breaks and zero-width characters removed, look-alike
+ * dashes turned into "-", dashes added back to a bare 12 characters); then with the first
+ * letter's case flipped (phones capitalise it). At most three distinct tries.
+ */
+export function tempPasswordAttempts(raw: string): string[] {
+  let cleaned = raw
+    .normalize("NFKC")
+    .replace(/[\s​-‍⁠﻿]/g, "")
+    .replace(/[‐-―−﹘﹣－]/g, "-");
+  if (/^[A-Za-z0-9]{12}$/.test(cleaned)) cleaned = cleaned.match(/.{4}/g)!.join("-");
+  const first = cleaned.charAt(0);
+  const flipped =
+    first.toUpperCase() !== first.toLowerCase()
+      ? (first === first.toUpperCase() ? first.toLowerCase() : first.toUpperCase()) +
+        cleaned.slice(1)
+      : cleaned;
+  return [...new Set([raw, cleaned, flipped])].filter(Boolean);
+}
+
+/**
  * Candidate sign-in. Order matters: rate limit → account checks → password. Every failure
  * returns a generic reason except lock and expiry, which the candidate needs to act on.
  */
@@ -163,8 +184,19 @@ export async function signInCandidate(
     };
   }
 
-  const passwordOk = await verifyPassword(user.passwordHash, input.password);
-  if (!passwordOk) {
+  // A temporary password is copied out of an email, so forgive the usual copy/typing slips
+  // (spaces, line breaks, look-alike dashes, missing dashes, a phone capitalising the first
+  // letter). A password the candidate chose themselves must match exactly.
+  let matched: string | null = null;
+  for (const attempt of user.mustChangePassword
+    ? tempPasswordAttempts(input.password)
+    : [input.password]) {
+    if (await verifyPassword(user.passwordHash, attempt)) {
+      matched = attempt;
+      break;
+    }
+  }
+  if (matched === null) {
     const { state, justLocked } = registerFailure(loginState, now);
     await db
       .update(users)
@@ -187,7 +219,7 @@ export async function signInCandidate(
     return { ok: false, reason: "temp_expired" };
   }
 
-  await deps.createSession(email, input.password);
+  await deps.createSession(email, matched);
   const reset = registerSuccess();
   await db
     .update(users)

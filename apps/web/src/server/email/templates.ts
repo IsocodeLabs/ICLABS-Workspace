@@ -252,7 +252,7 @@ export function renderEmail(
         const key = escapeHtml(l.slice(0, at).trim());
         const value = fill(escapeHtml(l.slice(at + 2).trim()), vars, (s) => escapeHtml(s));
         const mono = /password|code/i.test(key);
-        return `<tr><td style="padding:6px 16px 6px 0;color:#4b4b5a;font-size:14px;white-space:nowrap;vertical-align:top">${key}</td><td style="padding:6px 0;font-weight:600;${mono ? "font-family:'SFMono-Regular',Consolas,Menlo,monospace;letter-spacing:0.5px;" : ""}word-break:break-all">${value}</td></tr>`;
+        return `<tr><td style="padding:6px 16px 6px 0;color:#4b4b5a;font-size:14px;white-space:nowrap;vertical-align:top">${key}</td><td style="padding:6px 0;font-weight:600;${mono ? "font-family:'SFMono-Regular',Consolas,Menlo,monospace;font-size:17px;letter-spacing:0.5px;-webkit-user-select:all;user-select:all;white-space:nowrap;" : "word-break:break-all;"}">${value}</td></tr>`;
       });
       htmlParts.push(
         `<table role="presentation" style="width:100%;border-collapse:separate;margin:4px 0 20px;background:#f4f4f6;border:1px solid rgba(0,0,0,0.08);border-radius:12px"><tr><td style="padding:12px 18px"><table role="presentation" style="border-collapse:collapse">${rows.join("")}</table></td></tr></table>`,
