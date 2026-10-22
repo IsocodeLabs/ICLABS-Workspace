@@ -21,6 +21,7 @@ variable "cron_secret" {
 locals {
   runtime_env = {
     NODE_ENV           = "production"
+    DATABASE_POOL_MAX  = "5"
     TEAM_EMAIL_DOMAIN  = "isocodelabs.com"
     EMAIL_TRANSPORT    = "ses"
     AWS_REGION         = "ap-south-1"

@@ -88,7 +88,8 @@ export function FormStage({
         // Not stored on the server; the browser copy keeps it and the next change retries.
         setSaving("failed");
       }
-    }, 1000);
+      // 2.5s after typing stops: thousands of candidates writing at once stay a light load.
+    }, 2500);
     return () => clearTimeout(timer);
   }, [answers, applicationId, nodeId, key]);
 

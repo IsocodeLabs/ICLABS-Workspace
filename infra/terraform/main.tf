@@ -104,7 +104,8 @@ resource "google_sql_database_instance" "main" {
   database_version = "POSTGRES_16"
   region           = var.region
   settings {
-    tier              = var.env == "production" ? "db-custom-1-3840" : "db-f1-micro"
+    # Sized for ~3,000 candidates writing at once (autosave + submits): 2 vCPU / 7.5 GB.
+    tier              = var.env == "production" ? "db-custom-2-7680" : "db-f1-micro"
     availability_type = "ZONAL"
     backup_configuration {
       enabled                        = true
@@ -119,6 +120,11 @@ resource "google_sql_database_instance" "main" {
     database_flags {
       name  = "cloudsql.iam_authentication"
       value = "on"
+    }
+    # Up to 40 web instances × DATABASE_POOL_MAX 5, plus jobs and headroom.
+    database_flags {
+      name  = "max_connections"
+      value = "250"
     }
   }
   deletion_protection = var.env == "production"
@@ -161,7 +167,8 @@ resource "google_cloud_run_v2_service" "web" {
     service_account = google_service_account.web.email
     scaling {
       min_instance_count = var.env == "production" ? 1 : 0
-      max_instance_count = 10
+      # ~3,000 concurrent candidates at 80 requests per instance, with headroom for bursts.
+      max_instance_count = 40
     }
     containers {
       image = var.image

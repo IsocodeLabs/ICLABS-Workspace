@@ -14,6 +14,7 @@ import {
 } from "@iclabs/db";
 import { candidatePath, workflowConfigSchema, type Actor } from "@iclabs/core";
 import { assertCan, audit } from "./audit";
+import { versionConfig } from "./stages/progression";
 
 type CandidateActor = Extract<Actor, { kind: "candidate" }>;
 
@@ -94,15 +95,16 @@ function can(actor: CandidateActor, app: typeof applications.$inferSelect): bool
 /** Role space: returns null (→ 404) for anything that isn't this candidate's application. */
 export async function roleSpace(db: Db, actor: CandidateActor, applicationId: string) {
   const [row] = await db
-    .select({ app: applications, role: roles, config: workflowVersions.config })
+    .select({ app: applications, role: roles })
     .from(applications)
     .innerJoin(roles, eq(roles.id, applications.roleId))
-    .leftJoin(workflowVersions, eq(workflowVersions.id, applications.workflowVersionId))
     .where(
       and(eq(applications.id, applicationId), eq(applications.candidateId, actor.candidateId)),
     );
   if (!row || !can(actor, row.app)) return null;
-  const config = row.config ? workflowConfigSchema.parse(row.config) : null;
+  const config = row.app.workflowVersionId
+    ? await versionConfig(db, row.app.workflowVersionId)
+    : null;
   const steps = config ? candidatePath(config) : [];
   const currentIndex = steps.findIndex((s) => s.id === row.app.currentNodeId);
   return {

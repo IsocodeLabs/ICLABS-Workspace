@@ -67,7 +67,7 @@ export async function processOutbox(
   db: Db,
   mailer: Mailer,
   config: OutboxConfig,
-  opts: { now?: Date; limit?: number } = {},
+  opts: { now?: Date; limit?: number; concurrency?: number } = {},
 ): Promise<{ sent: number; failed: number; suppressed: number }> {
   const now = opts.now ?? new Date();
   const maxAttempts = config.maxAttempts ?? 5;
@@ -86,13 +86,13 @@ export async function processOutbox(
   );
   const result = { sent: 0, failed: 0, suppressed: 0 };
 
-  for (const { id } of due) {
+  const sendOne = async (id: string) => {
     const [claimed] = await db
       .update(emailMessages)
       .set({ status: "sending", attempts: sql`${emailMessages.attempts} + 1` })
       .where(and(eq(emailMessages.id, id), eq(emailMessages.status, "queued")))
       .returning();
-    if (!claimed) continue;
+    if (!claimed) return;
 
     if (claimed.userId) {
       const [c] = await db
@@ -105,7 +105,7 @@ export async function processOutbox(
           .set({ status: "suppressed", secretPayload: null, lastError: `address ${c.emailStatus}` })
           .where(eq(emailMessages.id, id));
         result.suppressed++;
-        continue;
+        return;
       }
     }
 
@@ -149,7 +149,14 @@ export async function processOutbox(
         .where(eq(emailMessages.id, id));
       result.failed++;
     }
-  }
+  };
+
+  // A few at a time keeps a big invite batch moving without outrunning SES's send rate.
+  const queue = [...due];
+  const worker = async () => {
+    for (let next = queue.shift(); next; next = queue.shift()) await sendOne(next.id);
+  };
+  await Promise.all(Array.from({ length: Math.max(1, opts.concurrency ?? 1) }, worker));
   return result;
 }
 

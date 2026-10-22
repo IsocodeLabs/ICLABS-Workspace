@@ -42,12 +42,37 @@ export type ProgressionDeps = {
 
 export type PinnedApplication = Awaited<ReturnType<typeof loadPinned>>;
 
+// Published versions never change (edits go to a new draft), so each is fetched and validated
+// once per server instance instead of on every candidate request. Frozen so nobody mutates it.
+const versionConfigs = new Map<string, WorkflowConfig>();
+
+function deepFreeze<T>(value: T): T {
+  if (value && typeof value === "object" && !Object.isFrozen(value)) {
+    Object.freeze(value);
+    for (const v of Object.values(value)) deepFreeze(v);
+  }
+  return value;
+}
+
+export async function versionConfig(db: Db, versionId: string): Promise<WorkflowConfig> {
+  const hit = versionConfigs.get(versionId);
+  if (hit) return hit;
+  const [v] = await db
+    .select({ config: workflowVersions.config })
+    .from(workflowVersions)
+    .where(eq(workflowVersions.id, versionId));
+  if (!v) throw new Error("application not pinned to a published process");
+  const config = deepFreeze(workflowConfigSchema.parse(v.config));
+  if (versionConfigs.size >= 500) versionConfigs.delete(versionConfigs.keys().next().value!);
+  versionConfigs.set(versionId, config);
+  return config;
+}
+
 /** An application with the exact process version it is pinned to. */
 export async function loadPinned(db: Db, applicationId: string) {
   const [row] = await db
     .select({
       app: applications,
-      config: workflowVersions.config,
       roleTitle: roles.title,
       candidateName: candidates.name,
       email: users.email,
@@ -60,7 +85,7 @@ export async function loadPinned(db: Db, applicationId: string) {
     .innerJoin(users, eq(users.id, candidates.userId))
     .where(eq(applications.id, applicationId));
   if (!row) throw new Error("application not pinned to a published process");
-  return { ...row, config: workflowConfigSchema.parse(row.config) };
+  return { ...row, config: await versionConfig(db, row.app.workflowVersionId!) };
 }
 
 const firstName = (name: string) => name.split(" ")[0]!;
