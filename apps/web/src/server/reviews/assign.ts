@@ -77,7 +77,8 @@ export async function assignReviewers(
     await notifyAdmins(db, pinned, {
       kind: "review_unassigned",
       title: `${pinned.candidateName}'s "${node.title}" needs a reviewer (${pinned.roleTitle})`,
-      body: reason === "borderline_second" ? "Borderline score: assign a second reviewer." : undefined,
+      body:
+        reason === "borderline_second" ? "Borderline score: assign a second reviewer." : undefined,
       link: `/team/reviews?view=unassigned`,
     });
     return [];
@@ -120,7 +121,11 @@ export async function assignReviewerManually(
     .where(eq(stageProgress.id, progressId));
   if (!row) return { ok: false as const, error: "Stage not found." };
   const pinned = await loadPinned(db, row.progress.applicationId);
-  assertCan(actor, "write", { type: "workflow", roleId: pinned.app.roleId, workflowId: pinned.app.workflowId });
+  assertCan(actor, "write", {
+    type: "workflow",
+    roleId: pinned.app.roleId,
+    workflowId: pinned.app.workflowId,
+  });
   const [member] = await db
     .select()
     .from(teamMembers)
@@ -162,12 +167,27 @@ export async function assignReviewerManually(
 }
 
 /** Takes an open review off someone's queue (e.g. they're away). */
-export async function releaseAssignment(db: Db, actor: Actor & { kind: "team" }, assignmentId: string) {
-  const [a] = await db.select().from(reviewAssignments).where(eq(reviewAssignments.id, assignmentId));
-  if (!a || a.status !== "assigned") return { ok: false as const, error: "That review isn't open." };
+export async function releaseAssignment(
+  db: Db,
+  actor: Actor & { kind: "team" },
+  assignmentId: string,
+) {
+  const [a] = await db
+    .select()
+    .from(reviewAssignments)
+    .where(eq(reviewAssignments.id, assignmentId));
+  if (!a || a.status !== "assigned")
+    return { ok: false as const, error: "That review isn't open." };
   const pinned = await loadPinned(db, a.applicationId);
-  assertCan(actor, "write", { type: "workflow", roleId: pinned.app.roleId, workflowId: pinned.app.workflowId });
-  await db.update(reviewAssignments).set({ status: "released" }).where(eq(reviewAssignments.id, assignmentId));
+  assertCan(actor, "write", {
+    type: "workflow",
+    roleId: pinned.app.roleId,
+    workflowId: pinned.app.workflowId,
+  });
+  await db
+    .update(reviewAssignments)
+    .set({ status: "released" })
+    .where(eq(reviewAssignments.id, assignmentId));
   await audit(db, {
     actorUserId: actor.userId,
     action: "review_released",
@@ -181,13 +201,25 @@ async function alertReviewers(db: Db, created: { id: string; reviewerId: string 
   const members = await db
     .select({ id: teamMembers.id, userId: teamMembers.userId })
     .from(teamMembers)
-    .where(inArray(teamMembers.id, created.map((c) => c.reviewerId)));
+    .where(
+      inArray(
+        teamMembers.id,
+        created.map((c) => c.reviewerId),
+      ),
+    );
   await notify(
     db,
     created.flatMap((c) => {
       const userId = members.find((m) => m.id === c.reviewerId)?.userId;
       return userId
-        ? [{ userId, kind: "review_assigned", title: `New review: ${what}`, link: `/team/reviews/${c.id}` }]
+        ? [
+            {
+              userId,
+              kind: "review_assigned",
+              title: `New review: ${what}`,
+              link: `/team/reviews/${c.id}`,
+            },
+          ]
         : [];
     }),
   );
@@ -198,6 +230,11 @@ export async function listReviewers(db: Db) {
   return db
     .select({ id: teamMembers.id, email: teamMembers.email, role: teamMembers.role })
     .from(teamMembers)
-    .where(and(eq(teamMembers.active, true), inArray(teamMembers.role, ["admin", "hiring_manager", "reviewer"])))
+    .where(
+      and(
+        eq(teamMembers.active, true),
+        inArray(teamMembers.role, ["admin", "hiring_manager", "reviewer"]),
+      ),
+    )
     .orderBy(teamMembers.email);
 }

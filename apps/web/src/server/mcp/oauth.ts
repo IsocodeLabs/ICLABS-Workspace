@@ -44,13 +44,21 @@ export function isAllowedRedirect(uri: string): boolean {
 
 export async function registerClient(db: Db, input: unknown) {
   const body = (input ?? {}) as { client_name?: unknown; redirect_uris?: unknown };
-  const uris = Array.isArray(body.redirect_uris) ? body.redirect_uris.filter((u): u is string => typeof u === "string") : [];
+  const uris = Array.isArray(body.redirect_uris)
+    ? body.redirect_uris.filter((u): u is string => typeof u === "string")
+    : [];
   if (uris.length === 0 || uris.length > 10 || !uris.every(isAllowedRedirect))
     return { ok: false as const, error: "invalid_redirect_uri" };
-  const name = typeof body.client_name === "string" && body.client_name.trim() ? body.client_name.trim().slice(0, 100) : "MCP client";
+  const name =
+    typeof body.client_name === "string" && body.client_name.trim()
+      ? body.client_name.trim().slice(0, 100)
+      : "MCP client";
   const clientId = `mcp_${token()}`;
   await db.insert(oauthClients).values({ clientId, name, redirectUris: uris });
-  return { ok: true as const, client: { client_id: clientId, client_name: name, redirect_uris: uris } };
+  return {
+    ok: true as const,
+    client: { client_id: clientId, client_name: name, redirect_uris: uris },
+  };
 }
 
 export async function findClient(db: Db, clientId: string) {
@@ -60,9 +68,14 @@ export async function findClient(db: Db, clientId: string) {
 
 /** Validates an /authorize request before the consent screen is shown. */
 export async function checkAuthorizeRequest(db: Db, q: Record<string, string | undefined>) {
-  if (q.response_type !== "code") return { ok: false as const, error: "Only response_type=code is supported." };
+  if (q.response_type !== "code")
+    return { ok: false as const, error: "Only response_type=code is supported." };
   const client = q.client_id ? await findClient(db, q.client_id) : null;
-  if (!client) return { ok: false as const, error: "Unknown client. Reconnect from Claude to register again." };
+  if (!client)
+    return {
+      ok: false as const,
+      error: "Unknown client. Reconnect from Claude to register again.",
+    };
   if (!q.redirect_uri || !client.redirectUris.includes(q.redirect_uri))
     return { ok: false as const, error: "The redirect address doesn't match this client." };
   if (!q.code_challenge || q.code_challenge_method !== "S256")
@@ -87,7 +100,13 @@ async function isActiveAdmin(db: Db, userId: string) {
 
 export async function issueCode(
   db: Db,
-  input: { clientId: string; userId: string; redirectUri: string; codeChallenge: string; scope: string },
+  input: {
+    clientId: string;
+    userId: string;
+    redirectUri: string;
+    codeChallenge: string;
+    scope: string;
+  },
   now = new Date(),
 ) {
   if (!(await isActiveAdmin(db, input.userId))) throw new Error("only admins can connect Claude");
@@ -105,7 +124,8 @@ export async function issueCode(
 }
 
 const s256 = (verifier: string) => createHash("sha256").update(verifier).digest("base64url");
-const safeEq = (a: string, b: string) => a.length === b.length && timingSafeEqual(Buffer.from(a), Buffer.from(b));
+const safeEq = (a: string, b: string) =>
+  a.length === b.length && timingSafeEqual(Buffer.from(a), Buffer.from(b));
 
 type TokenResponse = {
   access_token: string;
@@ -114,9 +134,14 @@ type TokenResponse = {
   refresh_token: string;
   scope: string;
 };
-type TokenResult = { ok: true; body: TokenResponse } | { ok: false; error: string; description: string };
+type TokenResult =
+  { ok: true; body: TokenResponse } | { ok: false; error: string; description: string };
 
-async function newGrant(db: Db, g: { clientId: string; userId: string; scope: string }, now: Date): Promise<TokenResponse> {
+async function newGrant(
+  db: Db,
+  g: { clientId: string; userId: string; scope: string },
+  now: Date,
+): Promise<TokenResponse> {
   const access = token();
   const refresh = token();
   const client = await findClient(db, g.clientId);
@@ -130,30 +155,54 @@ async function newGrant(db: Db, g: { clientId: string; userId: string; scope: st
     refreshExpiresAt: new Date(now.getTime() + REFRESH_TTL_MS),
     scope: g.scope,
   });
-  return { access_token: access, token_type: "Bearer", expires_in: ACCESS_TTL_MS / 1000, refresh_token: refresh, scope: g.scope };
+  return {
+    access_token: access,
+    token_type: "Bearer",
+    expires_in: ACCESS_TTL_MS / 1000,
+    refresh_token: refresh,
+    scope: g.scope,
+  };
 }
 
 /** POST /token: authorization_code (with PKCE) or refresh_token (rotating). */
-export async function exchangeToken(db: Db, form: URLSearchParams, now = new Date()): Promise<TokenResult> {
+export async function exchangeToken(
+  db: Db,
+  form: URLSearchParams,
+  now = new Date(),
+): Promise<TokenResult> {
   const grantType = form.get("grant_type");
   const clientId = form.get("client_id") ?? "";
-  if (!(await findClient(db, clientId))) return { ok: false, error: "invalid_client", description: "Unknown client." };
+  if (!(await findClient(db, clientId)))
+    return { ok: false, error: "invalid_client", description: "Unknown client." };
 
   if (grantType === "authorization_code") {
     const code = form.get("code") ?? "";
     const [row] = await db
       .select()
       .from(oauthCodes)
-      .where(and(eq(oauthCodes.codeHash, sha256(code)), isNull(oauthCodes.usedAt), gt(oauthCodes.expiresAt, now)));
+      .where(
+        and(
+          eq(oauthCodes.codeHash, sha256(code)),
+          isNull(oauthCodes.usedAt),
+          gt(oauthCodes.expiresAt, now),
+        ),
+      );
     if (!row || row.clientId !== clientId || row.redirectUri !== form.get("redirect_uri"))
       return { ok: false, error: "invalid_grant", description: "Code is invalid or expired." };
     const verifier = form.get("code_verifier") ?? "";
     if (verifier.length < 43 || !safeEq(s256(verifier), row.codeChallenge))
       return { ok: false, error: "invalid_grant", description: "PKCE verification failed." };
     await db.update(oauthCodes).set({ usedAt: now }).where(eq(oauthCodes.id, row.id));
-    if (!(await isActiveAdmin(db, row.userId))) return { ok: false, error: "access_denied", description: "Admins only." };
+    if (!(await isActiveAdmin(db, row.userId)))
+      return { ok: false, error: "access_denied", description: "Admins only." };
     const body = await newGrant(db, row, now);
-    await audit(db, { actorUserId: row.userId, via: "mcp", action: "mcp_client_connected", entity: "oauth_client", entityId: clientId });
+    await audit(db, {
+      actorUserId: row.userId,
+      via: "mcp",
+      action: "mcp_client_connected",
+      entity: "oauth_client",
+      entityId: clientId,
+    });
     return { ok: true, body };
   }
 
@@ -161,9 +210,16 @@ export async function exchangeToken(db: Db, form: URLSearchParams, now = new Dat
     const [g] = await db
       .select()
       .from(oauthGrants)
-      .where(and(eq(oauthGrants.refreshTokenHash, sha256(form.get("refresh_token") ?? "")), gt(oauthGrants.refreshExpiresAt, now)));
-    if (!g || g.clientId !== clientId) return { ok: false, error: "invalid_grant", description: "Refresh token is invalid." };
-    if (!(await isActiveAdmin(db, g.userId))) return { ok: false, error: "access_denied", description: "Admins only." };
+      .where(
+        and(
+          eq(oauthGrants.refreshTokenHash, sha256(form.get("refresh_token") ?? "")),
+          gt(oauthGrants.refreshExpiresAt, now),
+        ),
+      );
+    if (!g || g.clientId !== clientId)
+      return { ok: false, error: "invalid_grant", description: "Refresh token is invalid." };
+    if (!(await isActiveAdmin(db, g.userId)))
+      return { ok: false, error: "access_denied", description: "Admins only." };
     const access = token();
     const refresh = token();
     await db
@@ -177,10 +233,20 @@ export async function exchangeToken(db: Db, form: URLSearchParams, now = new Dat
       .where(eq(oauthGrants.id, g.id));
     return {
       ok: true,
-      body: { access_token: access, token_type: "Bearer", expires_in: ACCESS_TTL_MS / 1000, refresh_token: refresh, scope: g.scope },
+      body: {
+        access_token: access,
+        token_type: "Bearer",
+        expires_in: ACCESS_TTL_MS / 1000,
+        refresh_token: refresh,
+        scope: g.scope,
+      },
     };
   }
-  return { ok: false, error: "unsupported_grant_type", description: "Use authorization_code or refresh_token." };
+  return {
+    ok: false,
+    error: "unsupported_grant_type",
+    description: "Use authorization_code or refresh_token.",
+  };
 }
 
 // ─── Kill switch and connected clients ───────────────────────────────────────
@@ -188,7 +254,10 @@ export async function exchangeToken(db: Db, form: URLSearchParams, now = new Dat
 const MCP_ENABLED = "mcp_enabled";
 
 export async function mcpEnabled(db: Db) {
-  const [s] = await db.select().from(workspaceSettings).where(eq(workspaceSettings.key, MCP_ENABLED));
+  const [s] = await db
+    .select()
+    .from(workspaceSettings)
+    .where(eq(workspaceSettings.key, MCP_ENABLED));
   return s ? s.value === true : true;
 }
 
@@ -198,8 +267,16 @@ export async function setMcpEnabled(db: Db, actor: Actor, enabled: boolean) {
   await db
     .insert(workspaceSettings)
     .values({ key: MCP_ENABLED, value: enabled, updatedBy: by })
-    .onConflictDoUpdate({ target: workspaceSettings.key, set: { value: enabled, updatedBy: by, updatedAt: new Date() } });
-  await audit(db, { actorUserId: by, action: enabled ? "mcp_enabled" : "mcp_disabled", entity: "settings", entityId: MCP_ENABLED });
+    .onConflictDoUpdate({
+      target: workspaceSettings.key,
+      set: { value: enabled, updatedBy: by, updatedAt: new Date() },
+    });
+  await audit(db, {
+    actorUserId: by,
+    action: enabled ? "mcp_enabled" : "mcp_disabled",
+    entity: "settings",
+    entityId: MCP_ENABLED,
+  });
 }
 
 /** Resolves a bearer token to the admin it belongs to, or null (401). */
@@ -208,7 +285,9 @@ export async function verifyAccessToken(db: Db, bearer: string | null, now = new
   const [g] = await db
     .select()
     .from(oauthGrants)
-    .where(and(eq(oauthGrants.accessTokenHash, sha256(bearer)), gt(oauthGrants.accessExpiresAt, now)));
+    .where(
+      and(eq(oauthGrants.accessTokenHash, sha256(bearer)), gt(oauthGrants.accessExpiresAt, now)),
+    );
   if (!g || !(await isActiveAdmin(db, g.userId))) return null;
   // Touch at most once a minute.
   if (!g.lastUsedAt || now.getTime() - g.lastUsedAt.getTime() > 60_000)

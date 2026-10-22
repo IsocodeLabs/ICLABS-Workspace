@@ -15,8 +15,7 @@ import {
 import { interviewDeps } from "@/server/interviews/deps";
 
 export type InterviewActionResult =
-  | { ok: true }
-  | { ok: false; error: string; conflicts?: string[]; needsLink?: boolean };
+  { ok: true } | { ok: false; error: string; conflicts?: string[]; needsLink?: boolean };
 
 const slot = z.object({
   startsAt: z.iso.datetime({ offset: true }),
@@ -36,11 +35,15 @@ async function run(fn: () => Promise<InterviewActionResult>): Promise<InterviewA
     revalidatePath("/team/interviews");
     return res.ok ? { ok: true } : res;
   } catch (err) {
-    if (err instanceof ForbiddenError) return { ok: false, error: "You don't have access to that." };
+    if (err instanceof ForbiddenError)
+      return { ok: false, error: "You don't have access to that." };
     const detail = err instanceof Error ? err.message : String(err);
     console.error("[interviews]", detail);
     // Team-only screen: the real cause (e.g. "calendar POST /calendars/… → 403") saves a support round-trip.
-    return { ok: false, error: `Google Calendar returned an error (${detail.slice(0, 160)}). Try again in a minute.` };
+    return {
+      ok: false,
+      error: `Google Calendar returned an error (${detail.slice(0, 160)}). Try again in a minute.`,
+    };
   }
 }
 
@@ -48,9 +51,16 @@ export async function scheduleAction(applicationId: string, input: z.input<typeo
   const { actor } = await requireTeam(["admin", "hiring_manager"]);
   const parsed = slot.safeParse(input);
   if (!parsed.success)
-    return { ok: false as const, error: "Pick a time, at least one interviewer, and a full https:// meeting link if you add one." };
+    return {
+      ok: false as const,
+      error:
+        "Pick a time, at least one interviewer, and a full https:// meeting link if you add one.",
+    };
   return run(() =>
-    scheduleInterview(db(), interviewDeps(), actor, applicationId, { ...parsed.data, startsAt: new Date(parsed.data.startsAt) }),
+    scheduleInterview(db(), interviewDeps(), actor, applicationId, {
+      ...parsed.data,
+      startsAt: new Date(parsed.data.startsAt),
+    }),
   );
 }
 
@@ -58,9 +68,16 @@ export async function rescheduleAction(interviewId: string, input: z.input<typeo
   const { actor } = await requireTeam(["admin", "hiring_manager"]);
   const parsed = slot.safeParse(input);
   if (!parsed.success)
-    return { ok: false as const, error: "Pick a time, at least one interviewer, and a full https:// meeting link if you add one." };
+    return {
+      ok: false as const,
+      error:
+        "Pick a time, at least one interviewer, and a full https:// meeting link if you add one.",
+    };
   return run(() =>
-    rescheduleInterview(db(), interviewDeps(), actor, interviewId, { ...parsed.data, startsAt: new Date(parsed.data.startsAt) }),
+    rescheduleInterview(db(), interviewDeps(), actor, interviewId, {
+      ...parsed.data,
+      startsAt: new Date(parsed.data.startsAt),
+    }),
   );
 }
 

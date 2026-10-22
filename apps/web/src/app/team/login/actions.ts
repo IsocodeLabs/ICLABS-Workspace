@@ -13,16 +13,23 @@ import { requireTeam } from "@/server/auth/session";
 import { appUrl, queueEmail } from "@/server/email";
 import { clientIp } from "@/server/request";
 
-export type TeamFormState = { error?: string; retryMinutes?: number; attemptsLeft?: number; done?: boolean } | undefined;
+export type TeamFormState =
+  { error?: string; retryMinutes?: number; attemptsLeft?: number; done?: boolean } | undefined;
 
 /** The challenge rides in an httpOnly cookie scoped to the login pages, never in the URL. */
 const CHALLENGE_COOKIE = "team_otp";
 
-type VerifyResponse = { ok: true } | { ok: false; reason: "invalid"; attemptsLeft: number } | { ok: false; reason: "expired" };
+type VerifyResponse =
+  | { ok: true }
+  | { ok: false; reason: "invalid"; attemptsLeft: number }
+  | { ok: false; reason: "expired" };
 
 async function verifyCode(challenge: string, code: string): Promise<VerifyResponse> {
   const api = auth().api as unknown as {
-    verifyTeamOtp: (input: { body: { challenge: string; code: string }; headers: Headers }) => Promise<VerifyResponse>;
+    verifyTeamOtp: (input: {
+      body: { challenge: string; code: string };
+      headers: Headers;
+    }) => Promise<VerifyResponse>;
   };
   return api.verifyTeamOtp({ body: { challenge, code }, headers: await headers() });
 }
@@ -30,8 +37,14 @@ async function verifyCode(challenge: string, code: string): Promise<VerifyRespon
 const signInSchema = z.object({ email: z.email().max(254), password: z.string().min(1).max(256) });
 
 /** Step 1: email + password. With codes on, emails a code and moves to the code page. */
-export async function teamSignInAction(_prev: TeamFormState, form: FormData): Promise<TeamFormState> {
-  const parsed = signInSchema.safeParse({ email: form.get("email"), password: form.get("password") });
+export async function teamSignInAction(
+  _prev: TeamFormState,
+  form: FormData,
+): Promise<TeamFormState> {
+  const parsed = signInSchema.safeParse({
+    email: form.get("email"),
+    password: form.get("password"),
+  });
   if (!parsed.success) return { error: "invalid" };
   const e = env();
   let issuedCode = "";
@@ -55,7 +68,10 @@ export async function teamSignInAction(_prev: TeamFormState, form: FormData): Pr
     { ...parsed.data, ip: await clientIp() },
   );
   if (!result.ok) {
-    return { error: result.reason, retryMinutes: result.retryAfterMs ? Math.ceil(result.retryAfterMs / 60_000) : undefined };
+    return {
+      error: result.reason,
+      retryMinutes: result.retryAfterMs ? Math.ceil(result.retryAfterMs / 60_000) : undefined,
+    };
   }
   if (!e.TEAM_LOGIN_OTP) {
     // Codes switched off (no email sender yet): complete the same single-use challenge here.
@@ -74,7 +90,10 @@ export async function teamSignInAction(_prev: TeamFormState, form: FormData): Pr
 }
 
 /** Step 2: the emailed code. */
-export async function verifyCodeAction(_prev: TeamFormState, form: FormData): Promise<TeamFormState> {
+export async function verifyCodeAction(
+  _prev: TeamFormState,
+  form: FormData,
+): Promise<TeamFormState> {
   const jar = await cookies();
   const challenge = jar.get(CHALLENGE_COOKIE)?.value;
   const code = String(form.get("code") ?? "").replace(/\D/g, "");
@@ -83,14 +102,19 @@ export async function verifyCodeAction(_prev: TeamFormState, form: FormData): Pr
   const res = await verifyCode(challenge, code);
   if (!res.ok) {
     if (res.reason === "expired") jar.delete({ name: CHALLENGE_COOKIE, path: "/team/login" });
-    return res.reason === "invalid" ? { error: "invalid", attemptsLeft: res.attemptsLeft } : { error: "expired" };
+    return res.reason === "invalid"
+      ? { error: "invalid", attemptsLeft: res.attemptsLeft }
+      : { error: "expired" };
   }
   jar.delete({ name: CHALLENGE_COOKIE, path: "/team/login" });
   redirect("/team");
 }
 
 /** "Set or reset my password": same answer whoever asks, so it can't reveal the team list. */
-export async function requestSetPasswordAction(_prev: TeamFormState, form: FormData): Promise<TeamFormState> {
+export async function requestSetPasswordAction(
+  _prev: TeamFormState,
+  form: FormData,
+): Promise<TeamFormState> {
   const email = z.email().max(254).safeParse(form.get("email"));
   if (!email.success) return { error: "invalid" };
   const e = env();
@@ -104,18 +128,28 @@ export async function requestSetPasswordAction(_prev: TeamFormState, form: FormD
 }
 
 const newPasswordSchema = z
-  .object({ token: z.string().min(10).max(200), newPassword: z.string().max(256), confirmPassword: z.string().max(256) })
+  .object({
+    token: z.string().min(10).max(200),
+    newPassword: z.string().max(256),
+    confirmPassword: z.string().max(256),
+  })
   .refine((v) => v.newPassword === v.confirmPassword, { message: "mismatch" });
 
 /** Opened from the emailed link: choose a password (policy + breached-password check). */
-export async function setNewPasswordAction(_prev: TeamFormState, form: FormData): Promise<TeamFormState> {
+export async function setNewPasswordAction(
+  _prev: TeamFormState,
+  form: FormData,
+): Promise<TeamFormState> {
   const parsed = newPasswordSchema.safeParse(Object.fromEntries(form));
   if (!parsed.success) return { error: "mismatch" };
   const issues = validateNewPassword(parsed.data.newPassword);
   if (issues.length) return { error: issues[0] };
   if ((await checkPwnedPassword(parsed.data.newPassword)).pwned) return { error: "breached" };
   try {
-    await auth().api.resetPassword({ body: { token: parsed.data.token, newPassword: parsed.data.newPassword }, headers: await headers() });
+    await auth().api.resetPassword({
+      body: { token: parsed.data.token, newPassword: parsed.data.newPassword },
+      headers: await headers(),
+    });
   } catch {
     return { error: "link" };
   }
@@ -123,11 +157,18 @@ export async function setNewPasswordAction(_prev: TeamFormState, form: FormData)
 }
 
 const changeSchema = z
-  .object({ currentPassword: z.string().min(1).max(256), newPassword: z.string().max(256), confirmPassword: z.string().max(256) })
+  .object({
+    currentPassword: z.string().min(1).max(256),
+    newPassword: z.string().max(256),
+    confirmPassword: z.string().max(256),
+  })
   .refine((v) => v.newPassword === v.confirmPassword, { message: "mismatch" });
 
 /** Signed-in team member changes their own password (optional, any time). */
-export async function changeTeamPasswordAction(_prev: TeamFormState, form: FormData): Promise<TeamFormState> {
+export async function changeTeamPasswordAction(
+  _prev: TeamFormState,
+  form: FormData,
+): Promise<TeamFormState> {
   const { session } = await requireTeam();
   const parsed = changeSchema.safeParse(Object.fromEntries(form));
   if (!parsed.success) return { error: "mismatch" };

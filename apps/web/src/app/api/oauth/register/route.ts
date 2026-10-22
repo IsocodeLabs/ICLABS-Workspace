@@ -10,11 +10,19 @@ export async function POST(req: Request) {
   const res = await registerClient(db(), body);
   if (!res.ok) return NextResponse.json({ error: res.error }, { status: 400, headers: cors });
   return NextResponse.json(
-    { ...res.client, token_endpoint_auth_method: "none", grant_types: ["authorization_code", "refresh_token"], response_types: ["code"] },
+    {
+      ...res.client,
+      token_endpoint_auth_method: "none",
+      grant_types: ["authorization_code", "refresh_token"],
+      response_types: ["code"],
+    },
     { status: 201, headers: cors },
   );
 }
 
 export function OPTIONS() {
-  return new NextResponse(null, { status: 204, headers: { ...cors, "Access-Control-Allow-Methods": "POST" } });
+  return new NextResponse(null, {
+    status: 204,
+    headers: { ...cors, "Access-Control-Allow-Methods": "POST" },
+  });
 }

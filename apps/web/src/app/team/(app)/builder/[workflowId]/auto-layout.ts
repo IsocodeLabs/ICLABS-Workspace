@@ -1,6 +1,5 @@
 import { TERMINALS, type WorkflowConfig } from "@iclabs/core/workflow";
 
-
 /** Tidy left-to-right layout of stages and end points. */
 export async function autoLayout(
   config: WorkflowConfig,

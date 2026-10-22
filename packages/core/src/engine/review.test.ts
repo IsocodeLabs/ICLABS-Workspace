@@ -1,6 +1,14 @@
 import { describe, expect, it } from "vitest";
 import type { Rubric } from "../workflow/schema";
-import { aggregateReviews, compositeScore, isBorderline, pickReviewers, rubricPct, scaleMax, validateScores } from "./review";
+import {
+  aggregateReviews,
+  compositeScore,
+  isBorderline,
+  pickReviewers,
+  rubricPct,
+  scaleMax,
+  validateScores,
+} from "./review";
 
 const rubric: Rubric = {
   scale: "1-5",
@@ -14,7 +22,10 @@ const rubric: Rubric = {
 describe("rubricPct", () => {
   it("weights criteria and expresses the result as a percentage of the scale", () => {
     // (5*50 + 3*30 + 4*20) / (5*100) = 420/500
-    expect(rubricPct(rubric, { quality: 5, thinking: 3, comms: 4 })).toEqual({ pct: 84, failedMustPass: false });
+    expect(rubricPct(rubric, { quality: 5, thinking: 3, comms: 4 })).toEqual({
+      pct: 84,
+      failedMustPass: false,
+    });
   });
 
   it("flags a must-pass criterion scored below its minimum", () => {
@@ -22,7 +33,13 @@ describe("rubricPct", () => {
   });
 
   it("treats pass/fail as 100 / 0", () => {
-    const pf: Rubric = { scale: "pass-fail", criteria: [{ id: "a", name: "A", weight: 1 }, { id: "b", name: "B", weight: 1 }] };
+    const pf: Rubric = {
+      scale: "pass-fail",
+      criteria: [
+        { id: "a", name: "A", weight: 1 },
+        { id: "b", name: "B", weight: 1 },
+      ],
+    };
     expect(rubricPct(pf, { a: 1, b: 0 }).pct).toBe(50);
     expect(scaleMax(pf)).toBe(1);
   });
@@ -79,13 +96,49 @@ describe("isBorderline", () => {
 describe("pickReviewers", () => {
   const pool = ["a", "b", "c"];
   it("takes turns: fewest reviews on this stage first, never the same person twice", () => {
-    expect(pickReviewers({ pool, count: 2, method: "round_robin", stageCounts: { a: 3, b: 1, c: 2 }, openLoad: {}, exclude: [] })).toEqual(["b", "c"]);
+    expect(
+      pickReviewers({
+        pool,
+        count: 2,
+        method: "round_robin",
+        stageCounts: { a: 3, b: 1, c: 2 },
+        openLoad: {},
+        exclude: [],
+      }),
+    ).toEqual(["b", "c"]);
   });
   it("lightest queue uses open assignments", () => {
-    expect(pickReviewers({ pool, count: 1, method: "load", stageCounts: {}, openLoad: { a: 5, b: 0, c: 2 }, exclude: [] })).toEqual(["b"]);
+    expect(
+      pickReviewers({
+        pool,
+        count: 1,
+        method: "load",
+        stageCounts: {},
+        openLoad: { a: 5, b: 0, c: 2 },
+        exclude: [],
+      }),
+    ).toEqual(["b"]);
   });
   it("respects exclusions and manual mode", () => {
-    expect(pickReviewers({ pool, count: 1, method: "round_robin", stageCounts: {}, openLoad: {}, exclude: ["a"] })).toEqual(["b"]);
-    expect(pickReviewers({ pool, count: 1, method: "manual", stageCounts: {}, openLoad: {}, exclude: [] })).toEqual([]);
+    expect(
+      pickReviewers({
+        pool,
+        count: 1,
+        method: "round_robin",
+        stageCounts: {},
+        openLoad: {},
+        exclude: ["a"],
+      }),
+    ).toEqual(["b"]);
+    expect(
+      pickReviewers({
+        pool,
+        count: 1,
+        method: "manual",
+        stageCounts: {},
+        openLoad: {},
+        exclude: [],
+      }),
+    ).toEqual([]);
   });
 });

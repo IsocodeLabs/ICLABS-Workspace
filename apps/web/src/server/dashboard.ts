@@ -50,19 +50,31 @@ export async function hiringDashboard(db: Db, actor: TeamActor, now = new Date()
           nodeId: n.id,
           title: n.title,
           reached: rows.length,
-          finished: rows.filter((p) => ["submitted", "reviewed", "passed", "failed"].includes(p.state)).length,
+          finished: rows.filter((p) =>
+            ["submitted", "reviewed", "passed", "failed"].includes(p.state),
+          ).length,
         };
       }),
       byStatus,
-      avgComposite: scored.length ? Math.round((scored.reduce((a, b) => a + b, 0) / scored.length) * 10) / 10 : null,
+      avgComposite: scored.length
+        ? Math.round((scored.reduce((a, b) => a + b, 0) / scored.length) * 10) / 10
+        : null,
     });
   }
 
   const visibleApps = async () => {
     const rows = await db
-      .select({ id: applications.id, roleId: applications.roleId, workflowId: applications.workflowId })
+      .select({
+        id: applications.id,
+        roleId: applications.roleId,
+        workflowId: applications.workflowId,
+      })
       .from(applications);
-    return rows.filter((r) => can(actor, "read", { type: "workflow", roleId: r.roleId, workflowId: r.workflowId })).map((r) => r.id);
+    return rows
+      .filter((r) =>
+        can(actor, "read", { type: "workflow", roleId: r.roleId, workflowId: r.workflowId }),
+      )
+      .map((r) => r.id);
   };
   const ids = await visibleApps();
   const none = [""];
@@ -72,7 +84,12 @@ export async function hiringDashboard(db: Db, actor: TeamActor, now = new Date()
       oldest: sql<Date | null>`min(${reviewAssignments.assignedAt})`,
     })
     .from(reviewAssignments)
-    .where(and(eq(reviewAssignments.status, "assigned"), inArray(reviewAssignments.applicationId, ids.length ? ids : none)));
+    .where(
+      and(
+        eq(reviewAssignments.status, "assigned"),
+        inArray(reviewAssignments.applicationId, ids.length ? ids : none),
+      ),
+    );
   const [nextWeek] = await db
     .select({ n: sql<number>`count(*)::int` })
     .from(interviews)

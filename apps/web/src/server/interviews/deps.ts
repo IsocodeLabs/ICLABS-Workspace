@@ -33,5 +33,9 @@ function calendarClient(): CalendarClient | null {
 }
 
 export function interviewDeps(): InterviewDeps {
-  return { ...progressionDeps(), calendar: calendarClient(), organizerEmail: env().CALENDAR_ORGANIZER };
+  return {
+    ...progressionDeps(),
+    calendar: calendarClient(),
+    organizerEmail: env().CALENDAR_ORGANIZER,
+  };
 }

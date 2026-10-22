@@ -34,7 +34,9 @@ export default async function TeamHome() {
         {overview.items.length === 0 ? (
           <Card>
             <p className="font-semibold">You&apos;re all caught up.</p>
-            <p className="mt-1 text-muted">Nothing is waiting on you right now. New reviews and decisions will show up here.</p>
+            <p className="mt-1 text-muted">
+              Nothing is waiting on you right now. New reviews and decisions will show up here.
+            </p>
           </Card>
         ) : (
           <div className="grid gap-3 md:grid-cols-2">
@@ -48,7 +50,11 @@ export default async function TeamHome() {
                     <span className="block font-semibold">{i.title}</span>
                     <span className="block text-sm text-muted">{i.detail}</span>
                   </span>
-                  <ArrowRight size={18} className="text-muted transition group-hover:translate-x-0.5" aria-hidden />
+                  <ArrowRight
+                    size={18}
+                    className="text-muted transition group-hover:translate-x-0.5"
+                    aria-hidden
+                  />
                 </Card>
               </Link>
             ))}
@@ -77,7 +83,10 @@ export default async function TeamHome() {
             >
               <div
                 className="h-full rounded-full"
-                style={{ width: `${(doneSteps / overview.setup.length) * 100}%`, background: "var(--accent-gradient)" }}
+                style={{
+                  width: `${(doneSteps / overview.setup.length) * 100}%`,
+                  background: "var(--accent-gradient)",
+                }}
               />
             </div>
             <ol className="mt-4 space-y-1">
@@ -95,10 +104,18 @@ export default async function TeamHome() {
                       <Circle size={18} className="text-muted" aria-label="To do" />
                     )}
                     <span className="min-w-0 flex-1">
-                      <span className={`block font-semibold ${s.done ? "text-muted line-through" : ""}`}>{s.label}</span>
+                      <span
+                        className={`block font-semibold ${s.done ? "text-muted line-through" : ""}`}
+                      >
+                        {s.label}
+                      </span>
                       {!s.done && <span className="block text-sm text-muted">{s.hint}</span>}
                     </span>
-                    {s === nextStep && <span className="rounded-full bg-brand-500 px-2.5 py-0.5 text-xs font-bold text-white">Next</span>}
+                    {s === nextStep && (
+                      <span className="rounded-full bg-brand-500 px-2.5 py-0.5 text-xs font-bold text-white">
+                        Next
+                      </span>
+                    )}
                   </Link>
                 </li>
               ))}

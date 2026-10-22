@@ -3,7 +3,13 @@
 import { useRouter } from "next/navigation";
 import { Select } from "@/components/admin";
 
-export function TrackPicker({ value, options }: { value: string; options: { id: string; label: string }[] }) {
+export function TrackPicker({
+  value,
+  options,
+}: {
+  value: string;
+  options: { id: string; label: string }[];
+}) {
   const router = useRouter();
   return (
     <Select

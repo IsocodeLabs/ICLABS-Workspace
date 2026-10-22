@@ -26,12 +26,22 @@ import { type CalendarClient, overlaps } from "../calendar";
 import { buildIcs } from "../calendar/ics";
 import { notify } from "../portal";
 import { buildRuleContext, stageScores } from "../reviews/context";
-import { advanceFrom, loadPinned, notifyAdmins, type PinnedApplication, type ProgressionDeps } from "../stages/progression";
+import {
+  advanceFrom,
+  loadPinned,
+  notifyAdmins,
+  type PinnedApplication,
+  type ProgressionDeps,
+} from "../stages/progression";
 
 /** `calendar` is null until Google Calendar is connected: interviews still book, with the app's own invite email. */
-export type InterviewDeps = ProgressionDeps & { calendar: CalendarClient | null; organizerEmail: string };
+export type InterviewDeps = ProgressionDeps & {
+  calendar: CalendarClient | null;
+  organizerEmail: string;
+};
 type TeamActor = Actor & { kind: "team" };
-type Result<T = object> = ({ ok: true } & T) | { ok: false; error: string; conflicts?: string[]; needsLink?: boolean };
+type Result<T = object> =
+  ({ ok: true } & T) | { ok: false; error: string; conflicts?: string[]; needsLink?: boolean };
 
 const firstName = (n: string) => n.split(" ")[0]!;
 
@@ -49,11 +59,28 @@ async function panel(db: Db, ids: string[]) {
 }
 
 /** Panel members already booked in the workspace for an overlapping slot. */
-async function internalConflicts(db: Db, memberIds: string[], start: Date, end: Date, exceptId?: string) {
+async function internalConflicts(
+  db: Db,
+  memberIds: string[],
+  start: Date,
+  end: Date,
+  exceptId?: string,
+) {
   const rows = await db
-    .select({ id: interviews.id, interviewerIds: interviews.interviewerIds, startsAt: interviews.startsAt, endsAt: interviews.endsAt })
+    .select({
+      id: interviews.id,
+      interviewerIds: interviews.interviewerIds,
+      startsAt: interviews.startsAt,
+      endsAt: interviews.endsAt,
+    })
     .from(interviews)
-    .where(and(eq(interviews.status, "scheduled"), gt(interviews.endsAt, start), exceptId ? ne(interviews.id, exceptId) : undefined));
+    .where(
+      and(
+        eq(interviews.status, "scheduled"),
+        gt(interviews.endsAt, start),
+        exceptId ? ne(interviews.id, exceptId) : undefined,
+      ),
+    );
   const busy = new Set<string>();
   for (const r of rows) {
     if (!overlaps({ start: r.startsAt, end: r.endsAt }, { start, end })) continue;
@@ -71,7 +98,16 @@ function where(mode: string, meetUrl: string | null, location: string | null) {
 async function emailCandidate(
   deps: InterviewDeps,
   pinned: PinnedApplication,
-  iv: { id: string; roundName: string; startsAt: Date; endsAt: Date; mode: string; meetUrl: string | null; location: string | null; sequence: number },
+  iv: {
+    id: string;
+    roundName: string;
+    startsAt: Date;
+    endsAt: Date;
+    mode: string;
+    meetUrl: string | null;
+    location: string | null;
+    sequence: number;
+  },
   kind: "scheduled" | "moved" | "cancelled",
   instructions?: string,
 ) {
@@ -89,7 +125,14 @@ async function emailCandidate(
     attendeeEmail: pinned.email,
     now: deps.now?.(),
   });
-  const attachments = [{ filename: "interview.ics", content: ics, contentType: "text/calendar; charset=utf-8; method=" + (kind === "cancelled" ? "CANCEL" : "REQUEST") }];
+  const attachments = [
+    {
+      filename: "interview.ics",
+      content: ics,
+      contentType:
+        "text/calendar; charset=utf-8; method=" + (kind === "cancelled" ? "CANCEL" : "REQUEST"),
+    },
+  ];
   const base = { first_name: firstName(pinned.candidateName), role: pinned.roleTitle };
   if (kind === "scheduled") {
     await deps.queueEmail({
@@ -97,7 +140,13 @@ async function emailCandidate(
       templateKey: "interview_scheduled",
       userId: pinned.userId,
       applicationId: pinned.app.id,
-      vars: { ...base, round: iv.roundName, when: formatIst(iv.startsAt), where: place, instructions: instructions ?? "" },
+      vars: {
+        ...base,
+        round: iv.roundName,
+        when: formatIst(iv.startsAt),
+        where: place,
+        instructions: instructions ?? "",
+      },
       attachments,
     });
   } else {
@@ -127,17 +176,23 @@ export async function scheduleInterview(
   input: { startsAt: Date; interviewerIds: string[]; force?: boolean; meetUrl?: string },
 ): Promise<Result<{ interviewId: string }>> {
   const pinned = await loadPinned(db, applicationId);
-  assertCan(actor, "write", { type: "workflow", roleId: pinned.app.roleId, workflowId: pinned.app.workflowId });
+  assertCan(actor, "write", {
+    type: "workflow",
+    roleId: pinned.app.roleId,
+    workflowId: pinned.app.workflowId,
+  });
   const node = interviewNode(pinned, pinned.app.currentNodeId);
   if (!node) return { ok: false, error: "This candidate isn't at an interview stage." };
-  if (pinned.app.status !== "active") return { ok: false, error: "Only active candidates can be scheduled." };
+  if (pinned.app.status !== "active")
+    return { ok: false, error: "Only active candidates can be scheduled." };
   const [progress] = await db
     .select()
     .from(stageProgress)
     .where(and(eq(stageProgress.applicationId, applicationId), eq(stageProgress.nodeId, node.id)));
   if (!progress) return { ok: false, error: "Stage not reached." };
   const now = deps.now?.() ?? new Date();
-  if (input.startsAt.getTime() < now.getTime() + 15 * 60_000) return { ok: false, error: "Pick a time at least 15 minutes from now." };
+  if (input.startsAt.getTime() < now.getTime() + 15 * 60_000)
+    return { ok: false, error: "Pick a time at least 15 minutes from now." };
   const people = await panel(db, input.interviewerIds);
   if (people.length === 0) return { ok: false, error: "Pick at least one interviewer." };
   const endsAt = new Date(input.startsAt.getTime() + node.config.durationMin * 60_000);
@@ -201,12 +256,27 @@ export async function scheduleInterview(
     if (eventId) await deps.calendar?.cancelEvent(eventId).catch(() => {});
     return { ok: false, error: "This candidate was just scheduled by someone else." };
   }
-  await db.update(stageProgress).set({ state: "in_progress" }).where(eq(stageProgress.id, progress.id));
-  await db.update(applications).set({ status: "interview_scheduled" }).where(eq(applications.id, applicationId));
+  await db
+    .update(stageProgress)
+    .set({ state: "in_progress" })
+    .where(eq(stageProgress.id, progress.id));
+  await db
+    .update(applications)
+    .set({ status: "interview_scheduled" })
+    .where(eq(applications.id, applicationId));
   await emailCandidate(
     deps,
     pinned,
-    { id, roundName: node.config.roundName, startsAt: input.startsAt, endsAt, mode: node.config.mode, meetUrl, location: node.config.address ?? null, sequence: 0 },
+    {
+      id,
+      roundName: node.config.roundName,
+      startsAt: input.startsAt,
+      endsAt,
+      mode: node.config.mode,
+      meetUrl,
+      location: node.config.address ?? null,
+      sequence: 0,
+    },
     "scheduled",
     node.config.instructions,
   );
@@ -220,7 +290,13 @@ export async function scheduleInterview(
         body: formatIst(input.startsAt),
         link: `/team/interviews/${id}`,
       })),
-    { userId: pinned.userId, kind: "interview_scheduled", title: `${node.config.roundName} booked`, body: formatIst(input.startsAt), link: `/roles/${applicationId}` },
+    {
+      userId: pinned.userId,
+      kind: "interview_scheduled",
+      title: `${node.config.roundName} booked`,
+      body: formatIst(input.startsAt),
+      link: `/roles/${applicationId}`,
+    },
   ]);
   await audit(db, {
     actorUserId: actor.userId,
@@ -245,11 +321,23 @@ async function findConflicts(
   end: Date,
   exceptId?: string,
 ) {
-  const internal = await internalConflicts(db, people.map((p) => p.id), start, end, exceptId);
+  const internal = await internalConflicts(
+    db,
+    people.map((p) => p.id),
+    start,
+    end,
+    exceptId,
+  );
   let external: string[] = [];
   try {
     // Without Google Calendar only clashes with other workspace interviews are known.
-    const busy = deps.calendar ? await deps.calendar.freeBusy(people.map((p) => p.email), start, end) : {};
+    const busy = deps.calendar
+      ? await deps.calendar.freeBusy(
+          people.map((p) => p.email),
+          start,
+          end,
+        )
+      : {};
     external = people
       .filter((p) => !internal.includes(p.id))
       .filter((p) => (busy[p.email] ?? []).some((w) => overlaps(w, { start, end })))
@@ -257,7 +345,14 @@ async function findConflicts(
     // On reschedule the existing event shows as busy; it's ours, so ignore it.
     if (exceptId) {
       const [own] = await db.select().from(interviews).where(eq(interviews.id, exceptId));
-      if (own) external = external.filter((m) => !(own.interviewerIds.includes(m) && overlaps({ start: own.startsAt, end: own.endsAt }, { start, end })));
+      if (own)
+        external = external.filter(
+          (m) =>
+            !(
+              own.interviewerIds.includes(m) &&
+              overlaps({ start: own.startsAt, end: own.endsAt }, { start, end })
+            ),
+        );
     }
   } catch (err) {
     console.error("[interviews] free/busy failed", err instanceof Error ? err.message : err);
@@ -270,7 +365,11 @@ async function loadInterview(db: Db, actor: TeamActor, interviewId: string) {
   const [iv] = await db.select().from(interviews).where(eq(interviews.id, interviewId));
   if (!iv) return null;
   const pinned = await loadPinned(db, iv.applicationId);
-  assertCan(actor, "write", { type: "workflow", roleId: pinned.app.roleId, workflowId: pinned.app.workflowId });
+  assertCan(actor, "write", {
+    type: "workflow",
+    roleId: pinned.app.roleId,
+    workflowId: pinned.app.workflowId,
+  });
   return { iv, pinned };
 }
 
@@ -284,14 +383,17 @@ export async function rescheduleInterview(
   const loaded = await loadInterview(db, actor, interviewId);
   if (!loaded) return { ok: false, error: "Interview not found." };
   const { iv, pinned } = loaded;
-  if (iv.status !== "scheduled") return { ok: false, error: "Only upcoming interviews can be moved." };
+  if (iv.status !== "scheduled")
+    return { ok: false, error: "Only upcoming interviews can be moved." };
   const now = deps.now?.() ?? new Date();
-  if (input.startsAt.getTime() < now.getTime() + 15 * 60_000) return { ok: false, error: "Pick a time at least 15 minutes from now." };
+  if (input.startsAt.getTime() < now.getTime() + 15 * 60_000)
+    return { ok: false, error: "Pick a time at least 15 minutes from now." };
   const people = await panel(db, input.interviewerIds ?? iv.interviewerIds);
   if (people.length === 0) return { ok: false, error: "Pick at least one interviewer." };
   const endsAt = new Date(input.startsAt.getTime() + (iv.endsAt.getTime() - iv.startsAt.getTime()));
   const conflicts = await findConflicts(db, deps, people, input.startsAt, endsAt, iv.id);
-  if (conflicts.length && !input.force) return { ok: false, error: `Busy then: ${conflicts.join(", ")}`, conflicts };
+  if (conflicts.length && !input.force)
+    return { ok: false, error: `Busy then: ${conflicts.join(", ")}`, conflicts };
 
   let meetUrl = input.meetUrl ?? iv.meetUrl;
   if (iv.calendarEventId && deps.calendar) {
@@ -318,10 +420,23 @@ export async function rescheduleInterview(
       reminderHourSentAt: null,
     })
     .where(eq(interviews.id, iv.id));
-  await emailCandidate(deps, pinned, { ...iv, startsAt: input.startsAt, endsAt, meetUrl, sequence: iv.rescheduleCount + 1 }, "moved");
+  await emailCandidate(
+    deps,
+    pinned,
+    { ...iv, startsAt: input.startsAt, endsAt, meetUrl, sequence: iv.rescheduleCount + 1 },
+    "moved",
+  );
   await notify(
     db,
-    people.filter((p) => p.userId).map((p) => ({ userId: p.userId!, kind: "interview_moved", title: `${iv.roundName} with ${pinned.candidateName} moved`, body: formatIst(input.startsAt), link: `/team/interviews/${iv.id}` })),
+    people
+      .filter((p) => p.userId)
+      .map((p) => ({
+        userId: p.userId!,
+        kind: "interview_moved",
+        title: `${iv.roundName} with ${pinned.candidateName} moved`,
+        body: formatIst(input.startsAt),
+        link: `/team/interviews/${iv.id}`,
+      })),
   );
   await audit(db, {
     actorUserId: actor.userId,
@@ -334,17 +449,34 @@ export async function rescheduleInterview(
   return { ok: true };
 }
 
-export async function cancelInterview(db: Db, deps: InterviewDeps, actor: TeamActor, interviewId: string): Promise<Result> {
+export async function cancelInterview(
+  db: Db,
+  deps: InterviewDeps,
+  actor: TeamActor,
+  interviewId: string,
+): Promise<Result> {
   const loaded = await loadInterview(db, actor, interviewId);
   if (!loaded) return { ok: false, error: "Interview not found." };
   const { iv, pinned } = loaded;
-  if (iv.status !== "scheduled") return { ok: false, error: "Only upcoming interviews can be cancelled." };
+  if (iv.status !== "scheduled")
+    return { ok: false, error: "Only upcoming interviews can be cancelled." };
   if (iv.calendarEventId && deps.calendar) await deps.calendar.cancelEvent(iv.calendarEventId);
   await db.update(interviews).set({ status: "cancelled" }).where(eq(interviews.id, iv.id));
-  await db.update(stageProgress).set({ state: "unlocked" }).where(eq(stageProgress.id, iv.stageProgressId));
-  await db.update(applications).set({ status: "active" }).where(eq(applications.id, iv.applicationId));
+  await db
+    .update(stageProgress)
+    .set({ state: "unlocked" })
+    .where(eq(stageProgress.id, iv.stageProgressId));
+  await db
+    .update(applications)
+    .set({ status: "active" })
+    .where(eq(applications.id, iv.applicationId));
   await emailCandidate(deps, pinned, { ...iv, sequence: iv.rescheduleCount + 1 }, "cancelled");
-  await audit(db, { actorUserId: actor.userId, action: "interview_cancelled", entity: "interview", entityId: iv.id });
+  await audit(db, {
+    actorUserId: actor.userId,
+    action: "interview_cancelled",
+    entity: "interview",
+    entityId: iv.id,
+  });
   return { ok: true };
 }
 
@@ -364,13 +496,25 @@ export async function recordInterviewOutcome(
   if (iv.startsAt > now) return { ok: false, error: "The interview hasn't started yet." };
   await db.update(interviews).set({ status: outcome }).where(eq(interviews.id, iv.id));
   if (outcome === "done") {
-    await db.update(stageProgress).set({ state: "submitted", submittedAt: now }).where(eq(stageProgress.id, iv.stageProgressId));
-    await db.update(applications).set({ status: "active" }).where(eq(applications.id, iv.applicationId));
+    await db
+      .update(stageProgress)
+      .set({ state: "submitted", submittedAt: now })
+      .where(eq(stageProgress.id, iv.stageProgressId));
+    await db
+      .update(applications)
+      .set({ status: "active" })
+      .where(eq(applications.id, iv.applicationId));
     const ctx = await buildRuleContext(db, pinned, iv.nodeId);
     await advanceFrom(db, deps, iv.applicationId, iv.nodeId, ctx, "system");
   } else {
-    await db.update(stageProgress).set({ state: "missed" }).where(eq(stageProgress.id, iv.stageProgressId));
-    await db.update(applications).set({ status: "needs_decision" }).where(eq(applications.id, iv.applicationId));
+    await db
+      .update(stageProgress)
+      .set({ state: "missed" })
+      .where(eq(stageProgress.id, iv.stageProgressId));
+    await db
+      .update(applications)
+      .set({ status: "needs_decision" })
+      .where(eq(applications.id, iv.applicationId));
     await notifyAdmins(db, pinned, {
       kind: "interview_no_show",
       title: `${pinned.candidateName} missed the ${iv.roundName}`,
@@ -378,7 +522,12 @@ export async function recordInterviewOutcome(
       link: `/team/interviews`,
     });
   }
-  await audit(db, { actorUserId: actor.userId, action: `interview_${outcome}`, entity: "interview", entityId: iv.id });
+  await audit(db, {
+    actorUserId: actor.userId,
+    action: `interview_${outcome}`,
+    entity: "interview",
+    entityId: iv.id,
+  });
   return { ok: true };
 }
 
@@ -404,7 +553,10 @@ export async function sendInterviewReminders(db: Db, deps: InterviewDeps) {
     for (const iv of due) {
       // Booked inside the window: the invite itself was the reminder for the day-before one.
       if (field === "reminderDaySentAt" && iv.createdAt.getTime() > iv.startsAt.getTime() - ahead) {
-        await db.update(interviews).set({ [field]: now }).where(eq(interviews.id, iv.id));
+        await db
+          .update(interviews)
+          .set({ [field]: now })
+          .where(eq(interviews.id, iv.id));
         continue;
       }
       const pinned = await loadPinned(db, iv.applicationId);
@@ -424,14 +576,19 @@ export async function sendInterviewReminders(db: Db, deps: InterviewDeps) {
       const people = await panel(db, iv.interviewerIds);
       await notify(
         db,
-        people.filter((p) => p.userId).map((p) => ({
-          userId: p.userId!,
-          kind: "interview_soon",
-          title: `${iv.roundName} with ${pinned.candidateName} ${field === "reminderHourSentAt" ? "in an hour" : "tomorrow"}`,
-          link: `/team/interviews/${iv.id}`,
-        })),
+        people
+          .filter((p) => p.userId)
+          .map((p) => ({
+            userId: p.userId!,
+            kind: "interview_soon",
+            title: `${iv.roundName} with ${pinned.candidateName} ${field === "reminderHourSentAt" ? "in an hour" : "tomorrow"}`,
+            link: `/team/interviews/${iv.id}`,
+          })),
       );
-      await db.update(interviews).set({ [field]: now }).where(eq(interviews.id, iv.id));
+      await db
+        .update(interviews)
+        .set({ [field]: now })
+        .where(eq(interviews.id, iv.id));
       sent++;
     }
   }
@@ -443,19 +600,27 @@ export async function sendInterviewReminders(db: Db, deps: InterviewDeps) {
 type Field = { label: string; value: string; fileId?: string };
 
 /** A submission as label → value pairs, using the stage's own field labels. */
-function labelledFields(node: PinnedApplication["config"]["nodes"][number] | undefined, data: Record<string, unknown> | null, fileNames: Map<string, string>): Field[] {
+function labelledFields(
+  node: PinnedApplication["config"]["nodes"][number] | undefined,
+  data: Record<string, unknown> | null,
+  fileNames: Map<string, string>,
+): Field[] {
   if (!node || !data) return [];
   const defs =
     node.type === "task"
       ? taskSubmissionFields(node.config)
       : node.type === "form" || node.type === "custom"
-        ? node.config.fields.filter((f) => f.kind !== "section").map((f) => ({ id: f.id, label: f.label, file: f.kind === "file" }))
+        ? node.config.fields
+            .filter((f) => f.kind !== "section")
+            .map((f) => ({ id: f.id, label: f.label, file: f.kind === "file" }))
         : [];
   return defs.flatMap((d) => {
     const v = data[d.id];
     if (v === null || v === undefined || v === "") return [];
     const text = Array.isArray(v) ? v.join(", ") : String(v);
-    return d.file ? [{ label: d.label, value: fileNames.get(text) ?? "File", fileId: text }] : [{ label: d.label, value: text }];
+    return d.file
+      ? [{ label: d.label, value: fileNames.get(text) ?? "File", fileId: text }]
+      : [{ label: d.label, value: text }];
   });
 }
 
@@ -465,16 +630,38 @@ const interviewerUserIds = async (db: Db, memberIds: string[]) =>
 /** Interviews page: who's ready to book, what's coming up, and recent ones needing an outcome. */
 export async function interviewBoard(db: Db, actor: TeamActor) {
   const manages = actor.role === "admin" || actor.role === "hiring_manager";
-  const ready: { applicationId: string; candidateName: string; roleTitle: string; roundName: string; durationMin: number; mode: string; pool: string[]; waitingSince: Date }[] = [];
+  const ready: {
+    applicationId: string;
+    candidateName: string;
+    roleTitle: string;
+    roundName: string;
+    durationMin: number;
+    mode: string;
+    pool: string[];
+    waitingSince: Date;
+  }[] = [];
   if (manages) {
     const rows = await db
       .select({ app: applications, name: candidates.name, p: stageProgress })
       .from(applications)
       .innerJoin(candidates, eq(candidates.id, applications.candidateId))
-      .innerJoin(stageProgress, and(eq(stageProgress.applicationId, applications.id), eq(stageProgress.nodeId, applications.currentNodeId)))
+      .innerJoin(
+        stageProgress,
+        and(
+          eq(stageProgress.applicationId, applications.id),
+          eq(stageProgress.nodeId, applications.currentNodeId),
+        ),
+      )
       .where(and(eq(applications.status, "active"), eq(stageProgress.state, "unlocked")));
     for (const r of rows) {
-      if (!can(actor, "write", { type: "workflow", roleId: r.app.roleId, workflowId: r.app.workflowId })) continue;
+      if (
+        !can(actor, "write", {
+          type: "workflow",
+          roleId: r.app.roleId,
+          workflowId: r.app.workflowId,
+        })
+      )
+        continue;
       const pinned = await loadPinned(db, r.app.id);
       const node = interviewNode(pinned, r.app.currentNodeId);
       if (!node) continue;
@@ -491,19 +678,28 @@ export async function interviewBoard(db: Db, actor: TeamActor) {
     }
   }
   const all = await db
-    .select({ iv: interviews, name: candidates.name, roleId: applications.roleId, workflowId: applications.workflowId })
+    .select({
+      iv: interviews,
+      name: candidates.name,
+      roleId: applications.roleId,
+      workflowId: applications.workflowId,
+    })
     .from(interviews)
     .innerJoin(applications, eq(applications.id, interviews.applicationId))
     .innerJoin(candidates, eq(candidates.id, applications.candidateId))
     .where(inArray(interviews.status, ["scheduled", "done", "no_show"]))
     .orderBy(asc(interviews.startsAt))
     .limit(500);
-  const members = await db.select({ id: teamMembers.id, email: teamMembers.email, userId: teamMembers.userId }).from(teamMembers);
+  const members = await db
+    .select({ id: teamMembers.id, email: teamMembers.email, userId: teamMembers.userId })
+    .from(teamMembers);
   const visible = all.filter((r) =>
     can(actor, "read", {
       type: "interview",
       roleId: r.roleId,
-      interviewerIds: r.iv.interviewerIds.flatMap((m) => members.find((x) => x.id === m)?.userId ?? []),
+      interviewerIds: r.iv.interviewerIds.flatMap(
+        (m) => members.find((x) => x.id === m)?.userId ?? [],
+      ),
     }),
   );
   const shape = (r: (typeof visible)[number]) => ({
@@ -514,7 +710,11 @@ export async function interviewBoard(db: Db, actor: TeamActor) {
   return {
     ready,
     upcoming: visible.filter((r) => r.iv.status === "scheduled").map(shape),
-    past: visible.filter((r) => r.iv.status !== "scheduled").reverse().slice(0, 30).map(shape),
+    past: visible
+      .filter((r) => r.iv.status !== "scheduled")
+      .reverse()
+      .slice(0, 30)
+      .map(shape),
   };
 }
 
@@ -535,11 +735,23 @@ export async function getInterviewBrief(db: Db, actor: TeamActor, interviewId: s
     .innerJoin(users, eq(users.id, candidates.userId))
     .where(eq(candidates.id, pinned.app.candidateId));
   const scores = await stageScores(db, pinned);
-  const progress = await db.select().from(stageProgress).where(eq(stageProgress.applicationId, pinned.app.id));
+  const progress = await db
+    .select()
+    .from(stageProgress)
+    .where(eq(stageProgress.applicationId, pinned.app.id));
   const stages = pinned.config.nodes
     .map((n) => {
       const p = progress.find((x) => x.nodeId === n.id);
-      return p ? { nodeId: n.id, title: n.title, type: n.type, state: p.state, pct: scores[n.id] ?? null, progressId: p.id } : null;
+      return p
+        ? {
+            nodeId: n.id,
+            title: n.title,
+            type: n.type,
+            state: p.state,
+            pct: scores[n.id] ?? null,
+            progressId: p.id,
+          }
+        : null;
     })
     .filter((s) => s !== null);
   const reviewRows = progress.length
@@ -547,18 +759,38 @@ export async function getInterviewBrief(db: Db, actor: TeamActor, interviewId: s
         .select({ r: reviews, reviewer: teamMembers.email })
         .from(reviews)
         .leftJoin(teamMembers, eq(teamMembers.id, reviews.reviewerId))
-        .where(and(inArray(reviews.stageProgressId, progress.map((p) => p.id)), eq(reviews.kind, "human")))
+        .where(
+          and(
+            inArray(
+              reviews.stageProgressId,
+              progress.map((p) => p.id),
+            ),
+            eq(reviews.kind, "human"),
+          ),
+        )
         .orderBy(desc(reviews.submittedAt))
     : [];
   const subs = progress.length
-    ? await db.select().from(submissions).where(inArray(submissions.stageProgressId, progress.map((p) => p.id))).orderBy(desc(submissions.version))
+    ? await db
+        .select()
+        .from(submissions)
+        .where(
+          inArray(
+            submissions.stageProgressId,
+            progress.map((p) => p.id),
+          ),
+        )
+        .orderBy(desc(submissions.version))
     : [];
   const fileIds = subs.flatMap((x) => x.fileIds);
   const fileNames = new Map(
-    (fileIds.length ? await db.select({ id: files.id, filename: files.filename }).from(files).where(inArray(files.id, fileIds)) : []).map((f) => [
-      f.id,
-      f.filename,
-    ]),
+    (fileIds.length
+      ? await db
+          .select({ id: files.id, filename: files.filename })
+          .from(files)
+          .where(inArray(files.id, fileIds))
+      : []
+    ).map((f) => [f.id, f.filename]),
   );
   const people = await panel(db, iv.interviewerIds);
   return {
@@ -571,14 +803,26 @@ export async function getInterviewBrief(db: Db, actor: TeamActor, interviewId: s
       ...s,
       reviews: reviewRows
         .filter((r) => r.r.stageProgressId === s.progressId)
-        .map((r) => ({ reviewer: r.reviewer, pct: r.r.totalPct, recommendation: r.r.recommendation, notes: r.r.notes })),
+        .map((r) => ({
+          reviewer: r.reviewer,
+          pct: r.r.totalPct,
+          recommendation: r.r.recommendation,
+          notes: r.r.notes,
+        })),
       fields: labelledFields(
         pinned.config.nodes.find((n) => n.id === s.nodeId),
-        (subs.find((x) => x.stageProgressId === s.progressId)?.data ?? null) as Record<string, unknown> | null,
+        (subs.find((x) => x.stageProgressId === s.progressId)?.data ?? null) as Record<
+          string,
+          unknown
+        > | null,
         fileNames,
       ),
     })),
-    canManage: can(actor, "write", { type: "workflow", roleId: pinned.app.roleId, workflowId: pinned.app.workflowId }),
+    canManage: can(actor, "write", {
+      type: "workflow",
+      roleId: pinned.app.roleId,
+      workflowId: pinned.app.workflowId,
+    }),
   };
 }
 
@@ -595,7 +839,12 @@ export async function interviewerOptions(db: Db) {
 export async function checkAvailability(
   db: Db,
   deps: InterviewDeps,
-  input: { interviewerIds: string[]; startsAt: Date; durationMin: number; exceptInterviewId?: string },
+  input: {
+    interviewerIds: string[];
+    startsAt: Date;
+    durationMin: number;
+    exceptInterviewId?: string;
+  },
 ) {
   const people = await panel(db, input.interviewerIds);
   const end = new Date(input.startsAt.getTime() + input.durationMin * 60_000);

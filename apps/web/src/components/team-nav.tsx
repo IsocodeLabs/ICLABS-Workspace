@@ -19,7 +19,20 @@ import {
 import type { TeamRole } from "@iclabs/core";
 import { NAV_GROUPS, type IconName } from "./team-nav-data";
 
-const ICONS = { Bot, CalendarClock, ClipboardCheck, FileQuestion, History, Home, KeyRound, KanbanSquare, Layers, Mail, UserPlus, Users } satisfies Record<IconName, unknown>;
+const ICONS = {
+  Bot,
+  CalendarClock,
+  ClipboardCheck,
+  FileQuestion,
+  History,
+  Home,
+  KeyRound,
+  KanbanSquare,
+  Layers,
+  Mail,
+  UserPlus,
+  Users,
+} satisfies Record<IconName, unknown>;
 
 export function TeamNav({
   role,
@@ -38,9 +51,14 @@ export function TeamNav({
         const items = group.items.filter((i) => !i.roles || i.roles.includes(role));
         if (items.length === 0) return null;
         return (
-          <div key={gi} className={gi === 0 ? "" : group.label ? "mt-5" : "mt-5 border-t border-border pt-4"}>
+          <div
+            key={gi}
+            className={gi === 0 ? "" : group.label ? "mt-5" : "mt-5 border-t border-border pt-4"}
+          >
             {group.label && (
-              <p className="mb-1.5 px-3 text-xs font-bold uppercase tracking-wider text-muted">{group.label}</p>
+              <p className="mb-1.5 px-3 text-xs font-bold uppercase tracking-wider text-muted">
+                {group.label}
+              </p>
             )}
             <ul className="space-y-0.5">
               {items.map(({ href, label, icon, badge }) => {
@@ -53,7 +71,9 @@ export function TeamNav({
                       href={href}
                       aria-current={active ? "page" : undefined}
                       className={`flex items-center gap-3 rounded-xl px-3 py-2 text-[0.95rem] font-medium transition ${
-                        active ? "bg-brand-500 text-white shadow-card" : "text-text hover:bg-neutral-bg"
+                        active
+                          ? "bg-brand-500 text-white shadow-card"
+                          : "text-text hover:bg-neutral-bg"
                       }`}
                     >
                       <Icon size={18} strokeWidth={2} aria-hidden />

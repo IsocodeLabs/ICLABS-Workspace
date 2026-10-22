@@ -30,7 +30,14 @@ type Card = {
   invitedAt: string;
 };
 type Node = { id: string; title: string; type: NodeType };
-type BatchRow = { applicationId: string; candidateName: string; score: number | null; rank: number; target: string; wouldReject: boolean };
+type BatchRow = {
+  applicationId: string;
+  candidateName: string;
+  score: number | null;
+  rank: number;
+  target: string;
+  wouldReject: boolean;
+};
 
 const STATE_LABEL: Record<string, [string, Tone]> = {
   unlocked: ["Not started", "neutral"],
@@ -43,14 +50,40 @@ const STATE_LABEL: Record<string, [string, Tone]> = {
 };
 
 const LANES: { id: string; title: string; match: (c: Card) => boolean; tone: string }[] = [
-  { id: "needs_decision", title: "Needs a decision", match: (c) => c.status === "needs_decision", tone: "var(--warning-fg)" },
-  { id: "on_hold", title: "On hold", match: (c) => c.status === "on_hold", tone: "var(--neutral-fg)" },
-  { id: "completed", title: "Completed", match: (c) => c.status === "completed", tone: "var(--success-fg)" },
-  { id: "closed", title: "Not progressing", match: (c) => c.status.startsWith("closed_"), tone: "var(--danger-fg)" },
+  {
+    id: "needs_decision",
+    title: "Needs a decision",
+    match: (c) => c.status === "needs_decision",
+    tone: "var(--warning-fg)",
+  },
+  {
+    id: "on_hold",
+    title: "On hold",
+    match: (c) => c.status === "on_hold",
+    tone: "var(--neutral-fg)",
+  },
+  {
+    id: "completed",
+    title: "Completed",
+    match: (c) => c.status === "completed",
+    tone: "var(--success-fg)",
+  },
+  {
+    id: "closed",
+    title: "Not progressing",
+    match: (c) => c.status.startsWith("closed_"),
+    tone: "var(--danger-fg)",
+  },
 ];
 
 const fmt = (iso: string) =>
-  new Date(iso).toLocaleString("en-IN", { timeZone: "Asia/Kolkata", day: "numeric", month: "short", hour: "numeric", minute: "2-digit" });
+  new Date(iso).toLocaleString("en-IN", {
+    timeZone: "Asia/Kolkata",
+    day: "numeric",
+    month: "short",
+    hour: "numeric",
+    minute: "2-digit",
+  });
 
 export function PipelineBoard({
   workflowId,
@@ -68,10 +101,14 @@ export function PipelineBoard({
   const router = useRouter();
   const [view, setView] = useState<"board" | "table">("board");
   const known = new Set(cards.map((c) => c.applicationId));
-  const [selected, setSelected] = useState<Set<string>>(new Set(prepared?.ids.filter((id) => known.has(id)) ?? []));
+  const [selected, setSelected] = useState<Set<string>>(
+    new Set(prepared?.ids.filter((id) => known.has(id)) ?? []),
+  );
   const [open, setOpen] = useState<Card | null>(null);
   const [rulesFor, setRulesFor] = useState<Node | null>(null);
-  const [bulk, setBulk] = useState<null | "advance" | "hold" | "reject">(prepared && selected.size ? prepared.action : null);
+  const [bulk, setBulk] = useState<null | "advance" | "hold" | "reject">(
+    prepared && selected.size ? prepared.action : null,
+  );
   const [flash, setFlash] = useState<string | null>(null);
 
   const columns = useMemo(() => {
@@ -80,9 +117,18 @@ export function PipelineBoard({
       title: n.title,
       node: n,
       tone: STAGE_TYPES[n.type].color,
-      cards: cards.filter((c) => (c.status === "active" || c.status === "interview_scheduled") && c.currentNodeId === n.id),
+      cards: cards.filter(
+        (c) =>
+          (c.status === "active" || c.status === "interview_scheduled") && c.currentNodeId === n.id,
+      ),
     }));
-    const lanes = LANES.map((l) => ({ id: l.id, title: l.title, node: null, tone: l.tone, cards: cards.filter(l.match) }));
+    const lanes = LANES.map((l) => ({
+      id: l.id,
+      title: l.title,
+      node: null,
+      tone: l.tone,
+      cards: cards.filter(l.match),
+    }));
     return [...lanes.slice(0, 1), ...stageCols, ...lanes.slice(1)];
   }, [nodes, cards]);
 
@@ -99,7 +145,11 @@ export function PipelineBoard({
   return (
     <>
       <div className="mb-4 flex flex-wrap items-center gap-3">
-        <div className="inline-flex rounded-xl border border-border bg-surface p-1" role="group" aria-label="View">
+        <div
+          className="inline-flex rounded-xl border border-border bg-surface p-1"
+          role="group"
+          aria-label="View"
+        >
           {(["board", "table"] as const).map((v) => (
             <button
               key={v}
@@ -108,18 +158,33 @@ export function PipelineBoard({
               onClick={() => setView(v)}
               className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1 text-sm font-semibold ${view === v ? "bg-brand-500 text-white" : "text-muted"}`}
             >
-              {v === "board" ? <LayoutGrid size={15} aria-hidden /> : <Rows3 size={15} aria-hidden />} {v === "board" ? "Board" : "Table"}
+              {v === "board" ? (
+                <LayoutGrid size={15} aria-hidden />
+              ) : (
+                <Rows3 size={15} aria-hidden />
+              )}{" "}
+              {v === "board" ? "Board" : "Table"}
             </button>
           ))}
         </div>
-        <p className="on-liquid text-sm">{cards.length} {cards.length === 1 ? "candidate" : "candidates"}</p>
+        <p className="on-liquid text-sm">
+          {cards.length} {cards.length === 1 ? "candidate" : "candidates"}
+        </p>
         {selected.size > 0 && (
           <div className="ml-auto flex items-center gap-2 rounded-xl border border-border bg-surface px-3 py-1.5">
             <span className="text-sm font-semibold">{selected.size} selected</span>
-            <Btn size="sm" variant="secondary" onClick={() => setBulk("advance")}>Move to…</Btn>
-            <Btn size="sm" variant="secondary" onClick={() => setBulk("hold")}>Hold</Btn>
-            <Btn size="sm" variant="danger" onClick={() => setBulk("reject")}>Not progressing</Btn>
-            <Btn size="sm" variant="ghost" onClick={() => setSelected(new Set())}>Clear</Btn>
+            <Btn size="sm" variant="secondary" onClick={() => setBulk("advance")}>
+              Move to…
+            </Btn>
+            <Btn size="sm" variant="secondary" onClick={() => setBulk("hold")}>
+              Hold
+            </Btn>
+            <Btn size="sm" variant="danger" onClick={() => setBulk("reject")}>
+              Not progressing
+            </Btn>
+            <Btn size="sm" variant="ghost" onClick={() => setSelected(new Set())}>
+              Clear
+            </Btn>
           </div>
         )}
       </div>
@@ -128,11 +193,20 @@ export function PipelineBoard({
       {view === "board" ? (
         <div className="flex gap-4 overflow-x-auto pb-4">
           {columns.map((col) => (
-            <section key={col.id} className="flex w-72 shrink-0 flex-col rounded-card border border-border bg-surface">
+            <section
+              key={col.id}
+              className="flex w-72 shrink-0 flex-col rounded-card border border-border bg-surface"
+            >
               <header className="flex items-center gap-2 border-b border-border px-3 py-2.5">
-                <span className="h-2.5 w-2.5 rounded-full" style={{ background: col.tone }} aria-hidden />
+                <span
+                  className="h-2.5 w-2.5 rounded-full"
+                  style={{ background: col.tone }}
+                  aria-hidden
+                />
                 <h2 className="flex-1 truncate text-sm font-bold">{col.title}</h2>
-                <span className="rounded-full bg-neutral-bg px-2 text-xs font-semibold tabular-nums">{col.cards.length}</span>
+                <span className="rounded-full bg-neutral-bg px-2 text-xs font-semibold tabular-nums">
+                  {col.cards.length}
+                </span>
                 {isAdmin && col.node && (
                   <button
                     type="button"
@@ -146,7 +220,9 @@ export function PipelineBoard({
                 )}
               </header>
               <div className="flex max-h-[65vh] flex-col gap-2 overflow-y-auto p-2">
-                {col.cards.length === 0 && <p className="px-2 py-6 text-center text-xs text-muted">Nobody here</p>}
+                {col.cards.length === 0 && (
+                  <p className="px-2 py-6 text-center text-xs text-muted">Nobody here</p>
+                )}
                 {col.cards.map((c) => (
                   <PipelineCard
                     key={c.applicationId}
@@ -178,12 +254,24 @@ export function PipelineBoard({
               {[...cards]
                 .sort((a, b) => (b.composite ?? -1) - (a.composite ?? -1))
                 .map((c) => (
-                  <tr key={c.applicationId} className="border-b border-border last:border-0 hover:bg-neutral-bg">
+                  <tr
+                    key={c.applicationId}
+                    className="border-b border-border last:border-0 hover:bg-neutral-bg"
+                  >
                     <td className="px-3 py-2">
-                      <input type="checkbox" aria-label={`Select ${c.candidateName}`} checked={selected.has(c.applicationId)} onChange={() => toggle(c.applicationId)} />
+                      <input
+                        type="checkbox"
+                        aria-label={`Select ${c.candidateName}`}
+                        checked={selected.has(c.applicationId)}
+                        onChange={() => toggle(c.applicationId)}
+                      />
                     </td>
                     <td className="px-3 py-2">
-                      <button type="button" className="font-semibold hover:underline" onClick={() => setOpen(c)}>
+                      <button
+                        type="button"
+                        className="font-semibold hover:underline"
+                        onClick={() => setOpen(c)}
+                      >
                         {c.candidateName}
                       </button>
                       <p className="text-xs text-muted">{c.email}</p>
@@ -192,7 +280,9 @@ export function PipelineBoard({
                     <td className="px-3 py-2">
                       <StateBadge card={c} />
                     </td>
-                    <td className="px-3 py-2 text-right font-semibold tabular-nums">{c.composite ?? "—"}</td>
+                    <td className="px-3 py-2 text-right font-semibold tabular-nums">
+                      {c.composite ?? "—"}
+                    </td>
                     <td className="px-3 py-2 text-muted">{c.dueAt ? fmt(c.dueAt) : "—"}</td>
                   </tr>
                 ))}
@@ -250,7 +340,8 @@ export function PipelineBoard({
 }
 
 function StateBadge({ card }: { card: Card }) {
-  if (card.status === "interview_scheduled") return <StatusPill tone="success">Interview booked</StatusPill>;
+  if (card.status === "interview_scheduled")
+    return <StatusPill tone="success">Interview booked</StatusPill>;
   if (card.openReviews > 0) return <StatusPill tone="warning">In review</StatusPill>;
   const s = card.stageState ? STATE_LABEL[card.stageState] : null;
   return s ? <StatusPill tone={s[1]}>{s[0]}</StatusPill> : null;
@@ -274,7 +365,12 @@ function PipelineCard({
       className={`group rounded-xl border bg-surface p-3 shadow-sm transition hover:-translate-y-0.5 hover:shadow-card ${selected ? "border-brand-500 ring-2 ring-brand-500/30" : "border-border"}`}
     >
       <div className="flex items-start gap-2">
-        <button type="button" onClick={onToggle} aria-label={`${selected ? "Deselect" : "Select"} ${card.candidateName}`} className="mt-0.5 text-muted hover:text-brand-600">
+        <button
+          type="button"
+          onClick={onToggle}
+          aria-label={`${selected ? "Deselect" : "Select"} ${card.candidateName}`}
+          className="mt-0.5 text-muted hover:text-brand-600"
+        >
           {selected ? <CheckSquare size={16} /> : <Square size={16} />}
         </button>
         <button type="button" onClick={onOpen} className="min-w-0 flex-1 text-left">
@@ -282,7 +378,9 @@ function PipelineCard({
           {stageTitle && <p className="truncate text-xs text-muted">at {stageTitle}</p>}
         </button>
         {card.composite !== null && (
-          <span className="rounded-lg bg-brand-soft px-1.5 py-0.5 text-xs font-bold tabular-nums text-brand-600">{card.composite}</span>
+          <span className="rounded-lg bg-brand-soft px-1.5 py-0.5 text-xs font-bold tabular-nums text-brand-600">
+            {card.composite}
+          </span>
         )}
       </div>
       <div className="mt-2 flex flex-wrap items-center gap-1.5 pl-6">
@@ -327,35 +425,84 @@ function DecisionDialog({
     <>
       <Dialog open onClose={() => onClose()} title={card.candidateName}>
         <p className="-mt-2 mb-4 text-sm text-muted">
-          {card.email} · <Link className="underline" href={`/team/candidates/${card.candidateId}`}>Profile, submissions & emails</Link>
+          {card.email} ·{" "}
+          <Link className="underline" href={`/team/candidates/${card.candidateId}`}>
+            Profile, submissions & emails
+          </Link>
         </p>
         {error && <Alert>{error}</Alert>}
         {!closed && (
           <>
-            <label className="mb-1 block text-sm font-semibold" htmlFor="target">Move to stage</label>
+            <label className="mb-1 block text-sm font-semibold" htmlFor="target">
+              Move to stage
+            </label>
             <div className="flex gap-2">
               <Select id="target" value={target} onChange={(e) => setTarget(e.target.value)}>
                 {nodes.map((n) => (
                   <option key={n.id} value={n.id}>
-                    {n.title}{n.id === card.currentNodeId ? " (current — reopen)" : ""}
+                    {n.title}
+                    {n.id === card.currentNodeId ? " (current — reopen)" : ""}
                   </option>
                 ))}
               </Select>
               <Btn
                 disabled={!target || pending}
-                onClick={() => run(() => decideAction(card.applicationId, { action: "advance", targetNodeId: target, note: note || undefined }), `${card.candidateName} moved on.`)}
+                onClick={() =>
+                  run(
+                    () =>
+                      decideAction(card.applicationId, {
+                        action: "advance",
+                        targetNodeId: target,
+                        note: note || undefined,
+                      }),
+                    `${card.candidateName} moved on.`,
+                  )
+                }
               >
                 Move
               </Btn>
             </div>
-            <label className="mt-4 mb-1 block text-sm font-semibold" htmlFor="note">Note (kept in the audit trail)</label>
-            <TextArea id="note" value={note} onChange={(e) => setNote(e.target.value)} className="min-h-16" />
+            <label className="mt-4 mb-1 block text-sm font-semibold" htmlFor="note">
+              Note (kept in the audit trail)
+            </label>
+            <TextArea
+              id="note"
+              value={note}
+              onChange={(e) => setNote(e.target.value)}
+              className="min-h-16"
+            />
             <div className="mt-4 flex flex-wrap gap-2">
-              <Btn variant="secondary" disabled={pending} onClick={() => run(() => decideAction(card.applicationId, { action: "complete", note: note || undefined }), "Marked complete.")}>
+              <Btn
+                variant="secondary"
+                disabled={pending}
+                onClick={() =>
+                  run(
+                    () =>
+                      decideAction(card.applicationId, {
+                        action: "complete",
+                        note: note || undefined,
+                      }),
+                    "Marked complete.",
+                  )
+                }
+              >
                 Mark complete
               </Btn>
               {card.status !== "on_hold" && (
-                <Btn variant="secondary" disabled={pending} onClick={() => run(() => decideAction(card.applicationId, { action: "hold", note: note || undefined }), "On hold.")}>
+                <Btn
+                  variant="secondary"
+                  disabled={pending}
+                  onClick={() =>
+                    run(
+                      () =>
+                        decideAction(card.applicationId, {
+                          action: "hold",
+                          note: note || undefined,
+                        }),
+                      "On hold.",
+                    )
+                  }
+                >
                   Hold
                 </Btn>
               )}
@@ -365,34 +512,58 @@ function DecisionDialog({
             </div>
             {isAdmin && card.progressId && card.status !== "completed" && (
               <div className="mt-5 border-t border-border pt-4">
-                <label className="mb-1 block text-sm font-semibold" htmlFor="until">Extend the current deadline to</label>
+                <label className="mb-1 block text-sm font-semibold" htmlFor="until">
+                  Extend the current deadline to
+                </label>
                 <div className="flex gap-2">
-                  <Input id="until" type="datetime-local" value={until} onChange={(e) => setUntil(e.target.value)} />
+                  <Input
+                    id="until"
+                    type="datetime-local"
+                    value={until}
+                    onChange={(e) => setUntil(e.target.value)}
+                  />
                   <Btn
                     variant="secondary"
                     disabled={!until || pending}
-                    onClick={() => run(() => extendDeadlineAction(card.progressId!, new Date(until).toISOString()), "Deadline extended.")}
+                    onClick={() =>
+                      run(
+                        () => extendDeadlineAction(card.progressId!, new Date(until).toISOString()),
+                        "Deadline extended.",
+                      )
+                    }
                   >
                     Extend
                   </Btn>
                 </div>
-                <p className="mt-1 text-xs text-muted">Also reopens a missed stage. Times are in your local time zone.</p>
+                <p className="mt-1 text-xs text-muted">
+                  Also reopens a missed stage. Times are in your local time zone.
+                </p>
               </div>
             )}
           </>
         )}
-        {(card.status === "closed_rejected" || card.status === "completed" || card.status === "on_hold") && (
+        {(card.status === "closed_rejected" ||
+          card.status === "completed" ||
+          card.status === "on_hold") && (
           <Btn
             variant="secondary"
             className="mt-4"
             disabled={pending}
-            onClick={() => run(() => decideAction(card.applicationId, { action: "reopen", note: note || undefined }), "Reopened.")}
+            onClick={() =>
+              run(
+                () =>
+                  decideAction(card.applicationId, { action: "reopen", note: note || undefined }),
+                "Reopened.",
+              )
+            }
           >
             Reopen
           </Btn>
         )}
         {card.status === "closed_rejected" && (
-          <p className="mt-2 text-xs text-muted">Reopening within 48 hours cancels the not-progressing email before it goes out.</p>
+          <p className="mt-2 text-xs text-muted">
+            Reopening within 48 hours cancels the not-progressing email before it goes out.
+          </p>
         )}
       </Dialog>
       <ConfirmDialog
@@ -403,7 +574,10 @@ function DecisionDialog({
         onCancel={() => setConfirmReject(false)}
         onConfirm={() => {
           setConfirmReject(false);
-          run(() => decideAction(card.applicationId, { action: "reject", note: note || undefined }), `${card.candidateName} won't progress.`);
+          run(
+            () => decideAction(card.applicationId, { action: "reject", note: note || undefined }),
+            `${card.candidateName} won't progress.`,
+          );
         }}
       />
     </>
@@ -425,7 +599,13 @@ function RulesDialog({
   const [error, setError] = useState<string | null>(null);
   const [pending, start] = useTransition();
   const label = (t: string) =>
-    t === "NEEDS_DECISION" ? "Stays for a decision" : t === "END_REJECT" ? "Not progressing" : t === "END_COMPLETE" ? "Complete" : `→ ${nodes.find((n) => n.id === t)?.title ?? t}`;
+    t === "NEEDS_DECISION"
+      ? "Stays for a decision"
+      : t === "END_REJECT"
+        ? "Not progressing"
+        : t === "END_COMPLETE"
+          ? "Complete"
+          : `→ ${nodes.find((n) => n.id === t)?.title ?? t}`;
 
   const go = (dryRun: boolean) =>
     start(async () => {
@@ -442,9 +622,15 @@ function RulesDialog({
       title={`Run rules: ${node.title}`}
       footer={
         <>
-          <Btn variant="secondary" onClick={() => onClose()}>Cancel</Btn>
+          <Btn variant="secondary" onClick={() => onClose()}>
+            Cancel
+          </Btn>
           {rows ? (
-            <Btn variant="gradient" disabled={pending || rows.length === 0} onClick={() => go(false)}>
+            <Btn
+              variant="gradient"
+              disabled={pending || rows.length === 0}
+              onClick={() => go(false)}
+            >
               Apply to {rows.length}
             </Btn>
           ) : (
@@ -456,9 +642,14 @@ function RulesDialog({
       }
     >
       <p className="text-sm text-muted">
-        Ranks everyone waiting for a decision at this stage and applies its rules (including “top N” rules). Preview first: nothing changes until you apply.
+        Ranks everyone waiting for a decision at this stage and applies its rules (including “top N”
+        rules). Preview first: nothing changes until you apply.
       </p>
-      {error && <div className="mt-3"><Alert>{error}</Alert></div>}
+      {error && (
+        <div className="mt-3">
+          <Alert>{error}</Alert>
+        </div>
+      )}
       {rows && (
         <div className="mt-4 max-h-80 overflow-y-auto">
           {rows.length === 0 ? (
@@ -499,17 +690,25 @@ function BulkDialog({
   initialTarget?: string;
   onClose: (msg?: string) => void;
 }) {
-  const [target, setTarget] = useState(nodes.find((n) => n.id === initialTarget)?.id ?? nodes[0]?.id ?? "");
+  const [target, setTarget] = useState(
+    nodes.find((n) => n.id === initialTarget)?.id ?? nodes[0]?.id ?? "",
+  );
   const [pending, start] = useTransition();
   const title =
-    action === "advance" ? `Move ${ids.length} candidates` : action === "hold" ? `Hold ${ids.length} candidates?` : `${ids.length} candidates not progressing?`;
+    action === "advance"
+      ? `Move ${ids.length} candidates`
+      : action === "hold"
+        ? `Hold ${ids.length} candidates?`
+        : `${ids.length} candidates not progressing?`;
   const go = () =>
     start(async () => {
       const res = await bulkDecideAction(
         ids,
         action === "advance" ? { action: "advance", targetNodeId: target } : { action },
       );
-      onClose(`${res.done} updated${res.failed ? `, ${res.failed} skipped (closed or not allowed)` : ""}.`);
+      onClose(
+        `${res.done} updated${res.failed ? `, ${res.failed} skipped (closed or not allowed)` : ""}.`,
+      );
     });
   return (
     <Dialog
@@ -519,7 +718,9 @@ function BulkDialog({
       title={title}
       footer={
         <>
-          <Btn variant="secondary" onClick={() => onClose()}>Cancel</Btn>
+          <Btn variant="secondary" onClick={() => onClose()}>
+            Cancel
+          </Btn>
           <Btn variant={action === "reject" ? "danger" : "primary"} disabled={pending} onClick={go}>
             {pending ? "Working…" : "Confirm"}
           </Btn>
@@ -535,9 +736,13 @@ function BulkDialog({
           ))}
         </Select>
       ) : action === "reject" ? (
-        <p className="text-sm text-muted">Each gets the not-progressing email in 48 hours unless you reopen them first.</p>
+        <p className="text-sm text-muted">
+          Each gets the not-progressing email in 48 hours unless you reopen them first.
+        </p>
       ) : (
-        <p className="text-sm text-muted">They stay where they are until you reopen or move them.</p>
+        <p className="text-sm text-muted">
+          They stay where they are until you reopen or move them.
+        </p>
       )}
     </Dialog>
   );

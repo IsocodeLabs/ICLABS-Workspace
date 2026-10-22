@@ -25,7 +25,8 @@ export default async function StagePage({
   if (!stage) notFound();
   const t = await getTranslations("stage");
   const node = stage.node;
-  const interview = node.type === "interview" ? await candidateInterview(db(), applicationId, nodeId) : null;
+  const interview =
+    node.type === "interview" ? await candidateInterview(db(), applicationId, nodeId) : null;
   const submitted =
     stage.state !== "unlocked" && stage.state !== "in_progress" && stage.lastSubmission;
   // The step the candidate can work on now, if any. Interviews are scheduled by us, by email.
@@ -117,15 +118,21 @@ export default async function StagePage({
             <p className="rounded-card border border-border bg-surface p-6">{t("interview")}</p>
           )}
           {interview?.status === "done" && (
-            <p className="rounded-card border border-border bg-success-bg p-6 text-success-fg">{t("interviewDone")}</p>
+            <p className="rounded-card border border-border bg-success-bg p-6 text-success-fg">
+              {t("interviewDone")}
+            </p>
           )}
           {interview?.status === "scheduled" && (
             <section className="rounded-card border border-border bg-surface p-6 shadow-card">
-              <h2 className="font-display text-xl font-bold">{t("interviewBooked", { round: interview.roundName })}</h2>
+              <h2 className="font-display text-xl font-bold">
+                {t("interviewBooked", { round: interview.roundName })}
+              </h2>
               <p className="mt-2 text-lg">
                 {t("interviewWhen", {
                   when: formatIst(interview.startsAt),
-                  minutes: Math.round((interview.endsAt.getTime() - interview.startsAt.getTime()) / 60_000),
+                  minutes: Math.round(
+                    (interview.endsAt.getTime() - interview.startsAt.getTime()) / 60_000,
+                  ),
                 })}
               </p>
               {interview.mode === "meet" && interview.meetUrl && (
@@ -138,9 +145,13 @@ export default async function StagePage({
                   <Video size={18} aria-hidden /> {t("interviewJoin")}
                 </a>
               )}
-              {interview.mode === "phone" && <p className="mt-3 text-muted">{t("interviewPhone")}</p>}
+              {interview.mode === "phone" && (
+                <p className="mt-3 text-muted">{t("interviewPhone")}</p>
+              )}
               {interview.mode === "in_person" && (
-                <p className="mt-3 text-muted">{t("interviewAt", { place: interview.location ?? "Isocode Labs" })}</p>
+                <p className="mt-3 text-muted">
+                  {t("interviewAt", { place: interview.location ?? "Isocode Labs" })}
+                </p>
               )}
               <p className="mt-4 text-sm text-muted">{t("interviewChange")}</p>
             </section>

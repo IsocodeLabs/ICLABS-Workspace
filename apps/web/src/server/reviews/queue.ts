@@ -55,8 +55,14 @@ export type QueueItem = {
 };
 
 /** The signed-in reviewer's open reviews (oldest first), then their recent finished ones. */
-export async function myQueue(db: Db, actor: TeamActor): Promise<{ open: QueueItem[]; done: QueueItem[] }> {
-  const [me] = await db.select({ id: teamMembers.id }).from(teamMembers).where(eq(teamMembers.userId, actor.userId));
+export async function myQueue(
+  db: Db,
+  actor: TeamActor,
+): Promise<{ open: QueueItem[]; done: QueueItem[] }> {
+  const [me] = await db
+    .select({ id: teamMembers.id })
+    .from(teamMembers)
+    .where(eq(teamMembers.userId, actor.userId));
   if (!me) return { open: [], done: [] };
   const rows = await db
     .select({ a: reviewAssignments, p: stageProgress, name: candidates.name })
@@ -64,7 +70,12 @@ export async function myQueue(db: Db, actor: TeamActor): Promise<{ open: QueueIt
     .innerJoin(stageProgress, eq(stageProgress.id, reviewAssignments.stageProgressId))
     .innerJoin(applications, eq(applications.id, reviewAssignments.applicationId))
     .innerJoin(candidates, eq(candidates.id, applications.candidateId))
-    .where(and(eq(reviewAssignments.reviewerId, me.id), inArray(reviewAssignments.status, ["assigned", "submitted"])))
+    .where(
+      and(
+        eq(reviewAssignments.reviewerId, me.id),
+        inArray(reviewAssignments.status, ["assigned", "submitted"]),
+      ),
+    )
     .orderBy(desc(reviewAssignments.assignedAt))
     .limit(200);
   const items: QueueItem[] = [];
@@ -125,7 +136,10 @@ export async function unassignedQueue(db: Db, actor: TeamActor): Promise<Unassig
     .limit(200);
   const out: UnassignedItem[] = [];
   for (const r of rows) {
-    if (!can(actor, "write", { type: "workflow", roleId: r.app.roleId, workflowId: r.app.workflowId })) continue;
+    if (
+      !can(actor, "write", { type: "workflow", roleId: r.app.roleId, workflowId: r.app.workflowId })
+    )
+      continue;
     const pinned = await loadPinned(db, r.app.id);
     const node = pinned.config.nodes.find((n) => n.id === r.p.nodeId);
     if (!node || !isReviewable(node, { hasWrittenAnswers: true })) continue;
@@ -160,11 +174,18 @@ export async function getReviewView(db: Db, actor: TeamActor, assignmentId: stri
   const isMine = row.memberUserId === actor.userId;
   const allowed =
     isMine ||
-    can(actor, "write", { type: "workflow", roleId: pinned.app.roleId, workflowId: pinned.app.workflowId });
+    can(actor, "write", {
+      type: "workflow",
+      roleId: pinned.app.roleId,
+      workflowId: pinned.app.workflowId,
+    });
   if (!allowed) return null;
   const node = pinned.config.nodes.find((n) => n.id === row.a.nodeId);
   if (!node) return null;
-  const [progress] = await db.select().from(stageProgress).where(eq(stageProgress.id, row.a.stageProgressId));
+  const [progress] = await db
+    .select()
+    .from(stageProgress)
+    .where(eq(stageProgress.id, row.a.stageProgressId));
 
   const { submission, versions, assessment } = await stageAnswers(db, row.a.stageProgressId);
 
@@ -237,7 +258,12 @@ async function stageAnswers(db: Db, stageProgressId: string) {
   const latest = subs[0] ?? null;
   const fileRows = latest?.fileIds.length
     ? await db
-        .select({ id: files.id, filename: files.filename, size: files.size, scanStatus: files.scanStatus })
+        .select({
+          id: files.id,
+          filename: files.filename,
+          size: files.size,
+          scanStatus: files.scanStatus,
+        })
         .from(files)
         .where(inArray(files.id, latest.fileIds))
     : [];
@@ -252,7 +278,9 @@ async function stageAnswers(db: Db, stageProgressId: string) {
         submittedAt: session.submittedAt,
         autoSubmitted: session.autoSubmitted,
         integrity: await integritySummary(db, session.id),
-        questions: (await db.select().from(questions).where(inArray(questions.id, session.questionIds)))
+        questions: (
+          await db.select().from(questions).where(inArray(questions.id, session.questionIds))
+        )
           .sort((a, b) => session.questionIds.indexOf(a.id) - session.questionIds.indexOf(b.id))
           .map((q) => ({
             id: q.id,
@@ -269,7 +297,14 @@ async function stageAnswers(db: Db, stageProgressId: string) {
 
   return {
     submission: latest
-      ? { version: latest.version, data: latest.data, submittedAt: latest.submittedAt, isLate: latest.isLate, lateByMinutes: latest.lateByMinutes, files: fileRows }
+      ? {
+          version: latest.version,
+          data: latest.data,
+          submittedAt: latest.submittedAt,
+          isLate: latest.isLate,
+          lateByMinutes: latest.lateByMinutes,
+          files: fileRows,
+        }
       : null,
     versions: subs.length,
     assessment,
@@ -285,7 +320,15 @@ async function earlierStages(db: Db, pinned: PinnedApplication, nodeId: string) 
   const rows = await db
     .select()
     .from(stageProgress)
-    .where(and(eq(stageProgress.applicationId, pinned.app.id), inArray(stageProgress.nodeId, before.map((n) => n.id))));
+    .where(
+      and(
+        eq(stageProgress.applicationId, pinned.app.id),
+        inArray(
+          stageProgress.nodeId,
+          before.map((n) => n.id),
+        ),
+      ),
+    );
   const out: ({ node: WorkflowNode; autoScorePct: number | null } & StageAnswers)[] = [];
   for (const node of before) {
     const progress = rows.find((r) => r.nodeId === node.id);

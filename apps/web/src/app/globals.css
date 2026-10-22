@@ -48,7 +48,6 @@ body {
   outline-offset: 2px;
 }
 
-
 /* ─── Black liquid on white: drawn by a small GPU shader (see LiquidBackground) ─────────── */
 .liquid-bg {
   position: fixed;
@@ -66,14 +65,15 @@ body {
   image-rendering: auto;
 }
 /* No WebGL2: still black shapes on white so the look survives, with zero animation cost. */
-html.liquid-static .liquid-canvas { display: none; }
+html.liquid-static .liquid-canvas {
+  display: none;
+}
 html.liquid-static .liquid-bg {
   background:
     radial-gradient(ellipse 22% 30% at 8% 6%, #050508 0 58%, transparent 62%),
     radial-gradient(ellipse 16% 22% at 94% 22%, #050508 0 58%, transparent 62%),
     radial-gradient(ellipse 20% 16% at 22% 96%, #050508 0 58%, transparent 62%),
-    radial-gradient(ellipse 9% 12% at 70% 82%, #050508 0 58%, transparent 62%),
-    #fff;
+    radial-gradient(ellipse 9% 12% at 70% 82%, #050508 0 58%, transparent 62%), #fff;
 }
 
 /* ─── Glass: every surface is frosted white over the liquid ──────────────────────────── */
@@ -83,7 +83,9 @@ html.liquid-static .liquid-bg {
   box-shadow: var(--shadow-card);
 }
 /* Small tinted chips don't need their own blur: it's the most expensive thing to repeat. */
-.bg-neutral-bg { background-color: rgb(0 0 0 / 0.06); }
+.bg-neutral-bg {
+  background-color: rgb(0 0 0 / 0.06);
+}
 /* "Lite" mode (weak or busy machines, reduced motion): solid frosted white, no live blur. */
 html.lite .bg-surface,
 html.lite dialog > div {
@@ -91,17 +93,42 @@ html.lite dialog > div {
   backdrop-filter: none;
   background: rgb(255 255 255 / 0.97);
 }
-dialog { background: transparent; }
-dialog::backdrop { background: rgb(255 255 255 / 0.55); }
+dialog {
+  background: transparent;
+}
+dialog::backdrop {
+  background: rgb(255 255 255 / 0.55);
+}
 /* Dialogs sit on top of everything, so give them a sturdier glass. */
-dialog > div { background: rgb(255 255 255 / 0.97); -webkit-backdrop-filter: blur(var(--glass-blur)); backdrop-filter: blur(var(--glass-blur)); }
+dialog > div {
+  background: rgb(255 255 255 / 0.97);
+  -webkit-backdrop-filter: blur(var(--glass-blur));
+  backdrop-filter: blur(var(--glass-blur));
+}
 /* Page titles sit straight on the backdrop: invert against the liquid so they never vanish.
    Any other text placed straight on the backdrop (back links, section labels) takes .on-liquid. */
-h1.font-display, h1.font-display + p, main > section > h2, .on-liquid { color: #fff; mix-blend-mode: difference; }
-::selection { background: rgb(0 0 0 / 0.85); color: #fff; }
-::-webkit-scrollbar { width: 10px; height: 10px; }
-::-webkit-scrollbar-thumb { background: rgb(0 0 0 / 0.22); border-radius: 10px; }
-::-webkit-scrollbar-track { background: transparent; }
+h1.font-display,
+h1.font-display + p,
+main > section > h2,
+.on-liquid {
+  color: #fff;
+  mix-blend-mode: difference;
+}
+::selection {
+  background: rgb(0 0 0 / 0.85);
+  color: #fff;
+}
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-thumb {
+  background: rgb(0 0 0 / 0.22);
+  border-radius: 10px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
 
 /* React Flow chrome (builder): glass minimap and zoom controls. */
 .react-flow__minimap,
@@ -113,11 +140,17 @@ h1.font-display, h1.font-display + p, main > section > h2, .on-liquid { color: #
   -webkit-backdrop-filter: blur(var(--glass-blur));
   backdrop-filter: blur(var(--glass-blur));
 }
-.react-flow__minimap-mask { fill: rgb(255 255 255 / 0.6) !important; }
-.react-flow__minimap-node { fill: rgb(0 0 0 / 0.35) !important; }
+.react-flow__minimap-mask {
+  fill: rgb(255 255 255 / 0.6) !important;
+}
+.react-flow__minimap-node {
+  fill: rgb(0 0 0 / 0.35) !important;
+}
 .react-flow__controls-button {
   background: transparent !important;
   border-color: var(--border) !important;
   fill: var(--text) !important;
 }
-.react-flow__controls-button:hover { background: rgb(0 0 0 / 0.07) !important; }
+.react-flow__controls-button:hover {
+  background: rgb(0 0 0 / 0.07) !important;
+}

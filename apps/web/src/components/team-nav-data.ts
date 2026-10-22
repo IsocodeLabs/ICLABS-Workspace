@@ -1,6 +1,18 @@
 import type { TeamRole } from "@iclabs/core";
 
-export type IconName = "Bot" | "CalendarClock" | "ClipboardCheck" | "FileQuestion" | "History" | "Home" | "KeyRound" | "KanbanSquare" | "Layers" | "Mail" | "UserPlus" | "Users";
+export type IconName =
+  | "Bot"
+  | "CalendarClock"
+  | "ClipboardCheck"
+  | "FileQuestion"
+  | "History"
+  | "Home"
+  | "KeyRound"
+  | "KanbanSquare"
+  | "Layers"
+  | "Mail"
+  | "UserPlus"
+  | "Users";
 
 type Item = {
   href: string;
@@ -15,7 +27,12 @@ export const NAV_GROUPS: { label: string | null; items: Item[] }[] = [
   {
     label: "Hire",
     items: [
-      { href: "/team/candidates", label: "Candidates", icon: "UserPlus", roles: ["admin", "hiring_manager"] },
+      {
+        href: "/team/candidates",
+        label: "Candidates",
+        icon: "UserPlus",
+        roles: ["admin", "hiring_manager"],
+      },
       {
         href: "/team/pipeline",
         label: "Pipeline",
@@ -41,8 +58,18 @@ export const NAV_GROUPS: { label: string | null; items: Item[] }[] = [
   {
     label: "Set up",
     items: [
-      { href: "/team/roles", label: "Roles & processes", icon: "Layers", roles: ["admin", "hiring_manager"] },
-      { href: "/team/questions", label: "Question bank", icon: "FileQuestion", roles: ["admin", "hiring_manager"] },
+      {
+        href: "/team/roles",
+        label: "Roles & processes",
+        icon: "Layers",
+        roles: ["admin", "hiring_manager"],
+      },
+      {
+        href: "/team/questions",
+        label: "Question bank",
+        icon: "FileQuestion",
+        roles: ["admin", "hiring_manager"],
+      },
       { href: "/team/settings/emails", label: "Email templates", icon: "Mail", roles: ["admin"] },
     ],
   },
@@ -63,4 +90,3 @@ export function navEntriesFor(role: TeamRole) {
     .filter((i) => !i.roles || i.roles.includes(role))
     .map((i) => ({ href: i.href, label: i.label }));
 }
-

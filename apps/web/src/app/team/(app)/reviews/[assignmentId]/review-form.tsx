@@ -24,7 +24,10 @@ const min = (r: Rubric) => (r.scale === "pass-fail" ? 0 : 1);
 function livePct(r: Rubric, scores: Record<string, number>) {
   const allZero = r.criteria.every((c) => c.weight === 0);
   const total = allZero ? r.criteria.length : r.criteria.reduce((n, c) => n + c.weight, 0);
-  const sum = r.criteria.reduce((n, c) => n + ((scores[c.id] ?? 0) / max(r)) * (allZero ? 1 : c.weight), 0);
+  const sum = r.criteria.reduce(
+    (n, c) => n + ((scores[c.id] ?? 0) / max(r)) * (allZero ? 1 : c.weight),
+    0,
+  );
   return Math.round((sum / total) * 1000) / 10;
 }
 
@@ -39,8 +42,18 @@ export function ReviewForm({
   assignmentId: string;
   rubric: Rubric | null;
   canSubmit: boolean;
-  mine: { scores: Record<string, number>; recommendation: Rec | null; notes: string | null; totalPct: number | null } | null;
-  ai: { scores: Record<string, number>; evidence: Record<string, string>; notes: string | null; totalPct: number | null } | null;
+  mine: {
+    scores: Record<string, number>;
+    recommendation: Rec | null;
+    notes: string | null;
+    totalPct: number | null;
+  } | null;
+  ai: {
+    scores: Record<string, number>;
+    evidence: Record<string, string>;
+    notes: string | null;
+    totalPct: number | null;
+  } | null;
   aiEnabled: boolean;
 }) {
   const router = useRouter();
@@ -90,7 +103,12 @@ export function ReviewForm({
         submit();
         return;
       }
-      if (target.tagName === "TEXTAREA" || target.tagName === "INPUT" || target.tagName === "SELECT") return;
+      if (
+        target.tagName === "TEXTAREA" ||
+        target.tagName === "INPUT" ||
+        target.tagName === "SELECT"
+      )
+        return;
       const n = rubric.criteria.length;
       if (e.key === "ArrowDown" || e.key === "j") {
         e.preventDefault();
@@ -106,7 +124,9 @@ export function ReviewForm({
         setFromAi(false);
         setFocus((f) => Math.min(n, f + 1));
       } else if (focus === n && ["y", "Y", "n", "N"].includes(e.key)) {
-        setRec(e.key === "Y" ? "strong_yes" : e.key === "y" ? "yes" : e.key === "n" ? "no" : "strong_no");
+        setRec(
+          e.key === "Y" ? "strong_yes" : e.key === "y" ? "yes" : e.key === "n" ? "no" : "strong_no",
+        );
       }
     };
     window.addEventListener("keydown", onKey);
@@ -118,7 +138,9 @@ export function ReviewForm({
       <div className="h-1.5 rounded-t-card" style={{ background: "var(--accent-gradient)" }} />
       <div className="p-6">
         <div className="mb-4 flex items-baseline justify-between">
-          <h2 className="font-display text-xl font-bold">{readOnly ? "Your review" : "Score it"}</h2>
+          <h2 className="font-display text-xl font-bold">
+            {readOnly ? "Your review" : "Score it"}
+          </h2>
           {pct !== null && (
             <p className="font-display text-3xl font-bold tabular-nums" aria-live="polite">
               {pct}
@@ -147,7 +169,9 @@ export function ReviewForm({
             >
               Use these scores
             </Btn>
-            <p className="mt-1 text-xs text-muted">A suggestion only. Check it against the submission before you submit.</p>
+            <p className="mt-1 text-xs text-muted">
+              A suggestion only. Check it against the submission before you submit.
+            </p>
           </div>
         )}
         {!ai && aiEnabled && (
@@ -164,14 +188,18 @@ export function ReviewForm({
               })
             }
           >
-            <Sparkles size={16} aria-hidden /> {aiPending ? "Asking Claude…" : "Ask Claude for a first pass"}
+            <Sparkles size={16} aria-hidden />{" "}
+            {aiPending ? "Asking Claude…" : "Ask Claude for a first pass"}
           </Btn>
         )}
 
         {rubric && (
           <ol className="space-y-4">
             {rubric.criteria.map((c, i) => {
-              const values = Array.from({ length: max(rubric) - min(rubric) + 1 }, (_, k) => k + min(rubric));
+              const values = Array.from(
+                { length: max(rubric) - min(rubric) + 1 },
+                (_, k) => k + min(rubric),
+              );
               const v = scores[c.id];
               const anchor = v !== undefined ? c.anchors?.[String(v)] : undefined;
               return (
@@ -183,12 +211,20 @@ export function ReviewForm({
                   <div className="flex items-baseline justify-between gap-2">
                     <p className="font-semibold">
                       {c.name}
-                      {c.mustPassMin !== undefined && <span className="ml-1.5 text-xs font-normal text-warning-fg">must reach {c.mustPassMin}</span>}
+                      {c.mustPassMin !== undefined && (
+                        <span className="ml-1.5 text-xs font-normal text-warning-fg">
+                          must reach {c.mustPassMin}
+                        </span>
+                      )}
                     </p>
                     <span className="text-xs text-muted">weight {c.weight}</span>
                   </div>
                   {c.description && <p className="text-sm text-muted">{c.description}</p>}
-                  <div role="radiogroup" aria-label={c.name} className="mt-2 flex flex-wrap gap-1.5">
+                  <div
+                    role="radiogroup"
+                    aria-label={c.name}
+                    className="mt-2 flex flex-wrap gap-1.5"
+                  >
                     {values.map((n) => (
                       <button
                         key={n}
@@ -202,7 +238,9 @@ export function ReviewForm({
                           setFocus(Math.min(rubric.criteria.length, i + 1));
                         }}
                         className={`h-9 min-w-9 rounded-lg px-2 text-sm font-bold tabular-nums transition ${
-                          v === n ? "bg-brand-500 text-white shadow-card" : "border border-border bg-surface hover:border-brand-500"
+                          v === n
+                            ? "bg-brand-500 text-white shadow-card"
+                            : "border border-border bg-surface hover:border-brand-500"
                         } ${ai && ai.scores[c.id] === n && v !== n ? "ring-2 ring-brand-500/40" : ""}`}
                       >
                         {rubric.scale === "pass-fail" ? (n ? "Pass" : "Fail") : n}
@@ -210,14 +248,18 @@ export function ReviewForm({
                     ))}
                   </div>
                   {anchor && <p className="mt-1.5 text-sm text-muted">“{anchor}”</p>}
-                  {ai?.evidence[c.id] && !readOnly && <p className="mt-1.5 text-xs text-muted">Claude: {ai.evidence[c.id]}</p>}
+                  {ai?.evidence[c.id] && !readOnly && (
+                    <p className="mt-1.5 text-xs text-muted">Claude: {ai.evidence[c.id]}</p>
+                  )}
                 </li>
               );
             })}
           </ol>
         )}
 
-        <fieldset className={`mt-5 rounded-xl p-3 ${rubric && focus === rubric.criteria.length && !readOnly ? "ring-2 ring-brand-500" : ""}`}>
+        <fieldset
+          className={`mt-5 rounded-xl p-3 ${rubric && focus === rubric.criteria.length && !readOnly ? "ring-2 ring-brand-500" : ""}`}
+        >
           <legend className="mb-2 font-semibold">Recommendation</legend>
           <div className="grid grid-cols-2 gap-2">
             {RECS.map((r) => (
@@ -228,7 +270,9 @@ export function ReviewForm({
                 aria-pressed={rec === r.id}
                 onClick={() => setRec(r.id)}
                 className={`rounded-xl px-3 py-2 text-sm font-semibold transition ${
-                  rec === r.id ? `${r.tone} ring-2 ring-current` : "border border-border bg-surface hover:bg-neutral-bg"
+                  rec === r.id
+                    ? `${r.tone} ring-2 ring-current`
+                    : "border border-border bg-surface hover:bg-neutral-bg"
                 }`}
               >
                 {rec === r.id && <Check size={14} className="mr-1 inline" aria-hidden />}
@@ -252,12 +296,18 @@ export function ReviewForm({
 
         {!readOnly && (
           <>
-            <Btn variant="gradient" className="mt-4 w-full" disabled={!complete || pending} onClick={submit}>
+            <Btn
+              variant="gradient"
+              className="mt-4 w-full"
+              disabled={!complete || pending}
+              onClick={submit}
+            >
               {pending ? "Submitting…" : "Submit review"}
             </Btn>
             <p className="mt-3 flex items-start gap-1.5 text-xs text-muted">
               <Keyboard size={14} className="mt-px shrink-0" aria-hidden />
-              Number keys score and move on · ↑↓ or j/k to move · y / Y / n / N for the recommendation · Ctrl+Enter submits
+              Number keys score and move on · ↑↓ or j/k to move · y / Y / n / N for the
+              recommendation · Ctrl+Enter submits
             </p>
           </>
         )}

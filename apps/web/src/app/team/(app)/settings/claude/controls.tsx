@@ -8,7 +8,11 @@ import { revokeGrantAction, setMcpEnabledAction } from "./actions";
 export function KillSwitch({ enabled }: { enabled: boolean }) {
   const [pending, start] = useTransition();
   return (
-    <Btn variant={enabled ? "danger" : "primary"} disabled={pending} onClick={() => start(() => setMcpEnabledAction(!enabled))}>
+    <Btn
+      variant={enabled ? "danger" : "primary"}
+      disabled={pending}
+      onClick={() => start(() => setMcpEnabledAction(!enabled))}
+    >
       {enabled ? "Turn off for everyone" : "Turn on"}
     </Btn>
   );
@@ -19,7 +23,13 @@ export function RevokeGrant({ grantId, label }: { grantId: string; label: string
   const [pending, start] = useTransition();
   return (
     <>
-      <Btn size="sm" variant="ghost" className="text-danger-fg" disabled={pending} onClick={() => setOpen(true)}>
+      <Btn
+        size="sm"
+        variant="ghost"
+        className="text-danger-fg"
+        disabled={pending}
+        onClick={() => setOpen(true)}
+      >
         Revoke
       </Btn>
       <ConfirmDialog

@@ -27,7 +27,10 @@ for (const email of admins) {
     .insert(teamMembers)
     .values({ email, role: "admin", active: true })
     .onConflictDoUpdate({ target: teamMembers.email, set: { role: "admin", active: true } });
-  let [user] = await db.select({ id: users.id, kind: users.kind }).from(users).where(eq(users.email, email));
+  let [user] = await db
+    .select({ id: users.id, kind: users.kind })
+    .from(users)
+    .where(eq(users.email, email));
   if (!user) {
     [user] = await db
       .insert(users)

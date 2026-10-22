@@ -19,7 +19,10 @@ export function teamOtpPlugin(db: Db): BetterAuthPlugin {
         "/team-otp/verify",
         {
           method: "POST",
-          body: z.object({ challenge: z.string().min(20).max(200), code: z.string().min(1).max(20) }),
+          body: z.object({
+            challenge: z.string().min(20).max(200),
+            code: z.string().min(1).max(20),
+          }),
         },
         async (ctx) => {
           const result = await verifyTeamCode(db, ctx.body);

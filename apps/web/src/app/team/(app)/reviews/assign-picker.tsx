@@ -41,7 +41,11 @@ export function AssignPicker({
       >
         Assign
       </Btn>
-      {error && <span role="alert" className="text-sm text-danger-fg">{error}</span>}
+      {error && (
+        <span role="alert" className="text-sm text-danger-fg">
+          {error}
+        </span>
+      )}
     </div>
   );
 }

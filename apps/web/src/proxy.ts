@@ -9,7 +9,9 @@ import { NextResponse, type NextRequest } from "next/server";
 export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const isTeamArea =
-    pathname.startsWith("/team") && !pathname.startsWith("/team/login") && !pathname.startsWith("/team/set-password");
+    pathname.startsWith("/team") &&
+    !pathname.startsWith("/team/login") &&
+    !pathname.startsWith("/team/set-password");
   const isCandidateArea = [
     "/dashboard",
     "/change-password",
@@ -22,7 +24,8 @@ export function proxy(request: NextRequest) {
   if ((isTeamArea || isCandidateArea) && !getSessionCookie(request)) {
     const login = new URL(isTeamArea ? "/team/login" : "/login", request.url);
     // The MCP consent screen needs to come back to itself after Google sign-in.
-    if (pathname.startsWith("/team/oauth/")) login.searchParams.set("next", pathname + request.nextUrl.search);
+    if (pathname.startsWith("/team/oauth/"))
+      login.searchParams.set("next", pathname + request.nextUrl.search);
     return NextResponse.redirect(login);
   }
 

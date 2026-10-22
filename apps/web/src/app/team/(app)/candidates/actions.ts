@@ -64,8 +64,7 @@ export async function inviteCsvAction(csv: string, sendAt?: string) {
     queueEmail,
     loginUrl: appUrl("/login"),
     sendAfter: sendAfter && sendAfter > new Date() ? sendAfter : undefined,
-    onApplicationCreated: (id) =>
-      startApplication(db(), progressionDeps(), id),
+    onApplicationCreated: (id) => startApplication(db(), progressionDeps(), id),
   });
   revalidatePath("/team/candidates");
   return { ok: true as const, ...result };

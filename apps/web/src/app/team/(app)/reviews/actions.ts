@@ -25,7 +25,8 @@ async function guarded<T>(fn: () => Promise<T>): Promise<T | { ok: false; error:
   try {
     return await fn();
   } catch (err) {
-    if (err instanceof ForbiddenError) return { ok: false, error: "You don't have access to that." };
+    if (err instanceof ForbiddenError)
+      return { ok: false, error: "You don't have access to that." };
     throw err;
   }
 }
@@ -36,8 +37,11 @@ export async function submitReviewAction(
 ): Promise<ActionResult & { outcome?: string }> {
   const { actor } = await requireTeam(["admin", "hiring_manager", "reviewer"]);
   const parsed = reviewSchema.safeParse(input);
-  if (!parsed.success) return { ok: false, error: "Score every criterion and pick a recommendation." };
-  const res = await guarded(() => submitReview(db(), progressionDeps(), actor, assignmentId, parsed.data));
+  if (!parsed.success)
+    return { ok: false, error: "Score every criterion and pick a recommendation." };
+  const res = await guarded(() =>
+    submitReview(db(), progressionDeps(), actor, assignmentId, parsed.data),
+  );
   revalidatePath("/team/reviews");
   revalidatePath(`/team/reviews/${assignmentId}`);
   return res.ok ? { ok: true, outcome: "outcome" in res ? res.outcome : undefined } : res;
@@ -50,7 +54,10 @@ export async function requestAiAction(assignmentId: string): Promise<ActionResul
   return res.ok ? { ok: true } : res;
 }
 
-export async function assignReviewerAction(progressId: string, teamMemberId: string): Promise<ActionResult> {
+export async function assignReviewerAction(
+  progressId: string,
+  teamMemberId: string,
+): Promise<ActionResult> {
   const { actor } = await requireTeam(["admin", "hiring_manager"]);
   const res = await guarded(() => assignReviewerManually(db(), actor, progressId, teamMemberId));
   revalidatePath("/team/reviews");
@@ -65,15 +72,27 @@ export async function releaseAssignmentAction(assignmentId: string): Promise<Act
 }
 
 const decisionSchema = z.discriminatedUnion("action", [
-  z.object({ action: z.literal("advance"), targetNodeId: z.string().min(1), note: z.string().max(2000).optional() }),
-  z.object({ action: z.enum(["complete", "reject", "hold", "reopen"]), note: z.string().max(2000).optional() }),
+  z.object({
+    action: z.literal("advance"),
+    targetNodeId: z.string().min(1),
+    note: z.string().max(2000).optional(),
+  }),
+  z.object({
+    action: z.enum(["complete", "reject", "hold", "reopen"]),
+    note: z.string().max(2000).optional(),
+  }),
 ]);
 
-export async function decideAction(applicationId: string, input: z.input<typeof decisionSchema>): Promise<ActionResult> {
+export async function decideAction(
+  applicationId: string,
+  input: z.input<typeof decisionSchema>,
+): Promise<ActionResult> {
   const { actor } = await requireTeam(["admin", "hiring_manager"]);
   const parsed = decisionSchema.safeParse(input);
   if (!parsed.success) return { ok: false, error: "Pick what should happen next." };
-  const res = await guarded(() => decide(db(), progressionDeps(), actor, applicationId, parsed.data));
+  const res = await guarded(() =>
+    decide(db(), progressionDeps(), actor, applicationId, parsed.data),
+  );
   revalidatePath("/team/pipeline");
   return res;
 }
@@ -101,7 +120,10 @@ export async function runRulesAction(
   return res;
 }
 
-export async function extendDeadlineAction(progressId: string, untilIso: string): Promise<ActionResult> {
+export async function extendDeadlineAction(
+  progressId: string,
+  untilIso: string,
+): Promise<ActionResult> {
   const { actor } = await requireTeam(["admin"]);
   const until = new Date(untilIso);
   if (Number.isNaN(until.getTime()) || until.getTime() < Date.now())

@@ -63,12 +63,14 @@ export async function decide(
   assertCan(actor, "write", scopeOf(pinned));
   const status = pinned.app.status;
   const from = pinned.app.currentNodeId;
-  const closed = status === "closed_rejected" || status === "closed_withdrawn" || status === "completed";
+  const closed =
+    status === "closed_rejected" || status === "closed_withdrawn" || status === "completed";
   const note = input.note?.trim().slice(0, 2000) || null;
 
   if (input.action === "reopen") {
     if (status === "active") return { ok: false as const, error: "Already active." };
-    if (status === "closed_withdrawn") return { ok: false as const, error: "The candidate withdrew." };
+    if (status === "closed_withdrawn")
+      return { ok: false as const, error: "The candidate withdrew." };
     // A not-progressing email that hasn't gone out yet is cancelled.
     if (status === "closed_rejected") {
       await db
@@ -97,7 +99,9 @@ export async function decide(
       ? await db
           .select({ state: stageProgress.state })
           .from(stageProgress)
-          .where(and(eq(stageProgress.applicationId, applicationId), eq(stageProgress.nodeId, from)))
+          .where(
+            and(eq(stageProgress.applicationId, applicationId), eq(stageProgress.nodeId, from)),
+          )
       : [];
     const stillOpen = !!current && ["unlocked", "in_progress", "submitted"].includes(current.state);
     await db
@@ -107,12 +111,18 @@ export async function decide(
   } else if (closed) {
     return { ok: false as const, error: "This application is closed. Reopen it first." };
   } else if (input.action === "hold") {
-    await db.update(applications).set({ status: "on_hold" }).where(eq(applications.id, applicationId));
+    await db
+      .update(applications)
+      .set({ status: "on_hold" })
+      .where(eq(applications.id, applicationId));
   } else if (input.action === "reject") {
     await rejectApplication(db, deps, pinned, from, { actorUserId: actor.userId, via });
   } else if (input.action === "complete") {
     if (from) await markPassed(db, applicationId, from);
-    await db.update(applications).set({ status: "completed" }).where(eq(applications.id, applicationId));
+    await db
+      .update(applications)
+      .set({ status: "completed" })
+      .where(eq(applications.id, applicationId));
   } else {
     const target = pinned.config.nodes.find((n) => n.id === input.targetNodeId);
     if (!target) return { ok: false as const, error: "Pick a stage in this process." };
@@ -121,8 +131,13 @@ export async function decide(
     await db
       .update(stageProgress)
       .set({ state: "unlocked", submittedAt: null })
-      .where(and(eq(stageProgress.applicationId, applicationId), eq(stageProgress.nodeId, target.id)));
-    await db.update(applications).set({ status: "active" }).where(eq(applications.id, applicationId));
+      .where(
+        and(eq(stageProgress.applicationId, applicationId), eq(stageProgress.nodeId, target.id)),
+      );
+    await db
+      .update(applications)
+      .set({ status: "active" })
+      .where(eq(applications.id, applicationId));
     await unlockNode(db, deps, { ...pinned, app: { ...pinned.app, status: "active" } }, target.id);
     await db
       .update(applications)
@@ -159,7 +174,13 @@ async function markPassed(db: Db, applicationId: string, nodeId: string) {
       and(
         eq(stageProgress.applicationId, applicationId),
         eq(stageProgress.nodeId, nodeId),
-        inArray(stageProgress.state, ["submitted", "reviewed", "unlocked", "in_progress", "missed"]),
+        inArray(stageProgress.state, [
+          "submitted",
+          "reviewed",
+          "unlocked",
+          "in_progress",
+          "missed",
+        ]),
       ),
     );
 }
@@ -266,13 +287,21 @@ export type PipelineCard = {
 /** Tracks with a published process that the actor may see, for the pipeline picker. */
 export async function listTracks(db: Db, actor: TeamActor) {
   const rows = await db
-    .select({ id: workflows.id, name: workflows.name, cycleName: cycles.name, roleId: roles.id, roleTitle: roles.title })
+    .select({
+      id: workflows.id,
+      name: workflows.name,
+      cycleName: cycles.name,
+      roleId: roles.id,
+      roleTitle: roles.title,
+    })
     .from(workflows)
     .innerJoin(cycles, eq(cycles.id, workflows.cycleId))
     .innerJoin(roles, eq(roles.id, cycles.roleId))
     .where(isNotNull(workflows.publishedVersionId))
     .orderBy(roles.title, desc(cycles.createdAt), workflows.name);
-  return rows.filter((r) => can(actor, "read", { type: "workflow", roleId: r.roleId, workflowId: r.id }));
+  return rows.filter((r) =>
+    can(actor, "read", { type: "workflow", roleId: r.roleId, workflowId: r.id }),
+  );
 }
 
 /** Everyone in one track, with their current stage and composite score. */
@@ -302,23 +331,31 @@ export async function getPipeline(db: Db, actor: TeamActor, workflowId: string) 
     .orderBy(desc(applications.invitedAt));
   if (rows.length === 0) return { cards: [] as PipelineCard[], nodes, track: track.wf };
 
-  const progress = await progressFor(db, rows.map((r) => r.app.id));
+  const progress = await progressFor(
+    db,
+    rows.map((r) => r.app.id),
+  );
   const open = await db
     .select({ applicationId: reviewAssignments.applicationId })
     .from(reviewAssignments)
     .where(
       and(
-        inArray(reviewAssignments.applicationId, rows.map((r) => r.app.id)),
+        inArray(
+          reviewAssignments.applicationId,
+          rows.map((r) => r.app.id),
+        ),
         eq(reviewAssignments.status, "assigned"),
       ),
     );
   const cards: PipelineCard[] = [];
   for (const r of rows) {
-    const pinned = r.app.workflowVersionId ? await loadPinned(db, r.app.id).catch(() => null) : null;
-    const composite = pinned
-      ? compositeFor(pinned.config, await stageScores(db, pinned))
+    const pinned = r.app.workflowVersionId
+      ? await loadPinned(db, r.app.id).catch(() => null)
       : null;
-    const current = progress.find((p) => p.applicationId === r.app.id && p.nodeId === r.app.currentNodeId);
+    const composite = pinned ? compositeFor(pinned.config, await stageScores(db, pinned)) : null;
+    const current = progress.find(
+      (p) => p.applicationId === r.app.id && p.nodeId === r.app.currentNodeId,
+    );
     cards.push({
       applicationId: r.app.id,
       candidateId: r.app.candidateId,

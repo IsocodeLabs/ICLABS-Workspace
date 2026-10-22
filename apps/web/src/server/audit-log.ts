@@ -2,7 +2,12 @@ import { and, desc, eq, ilike, lt, auditLog, users, type Db } from "@iclabs/db";
 import type { Actor } from "@iclabs/core";
 import { assertCan } from "./audit";
 
-export type AuditFilter = { action?: string; entity?: string; via?: "ui" | "mcp" | "rule" | "system"; before?: string };
+export type AuditFilter = {
+  action?: string;
+  entity?: string;
+  via?: "ui" | "mcp" | "rule" | "system";
+  before?: string;
+};
 
 const PAGE = 50;
 

@@ -17,7 +17,17 @@ steps:
 
   - id: Build migrate
     name: gcr.io/cloud-builders/docker
-    args: ["build", "-f", "apps/web/Dockerfile", "--target", "migrate", "-t", "${_MIGRATE_IMAGE}:${COMMIT_SHA}", "."]
+    args:
+      [
+        "build",
+        "-f",
+        "apps/web/Dockerfile",
+        "--target",
+        "migrate",
+        "-t",
+        "${_MIGRATE_IMAGE}:${COMMIT_SHA}",
+        ".",
+      ]
 
   - id: Push
     name: gcr.io/cloud-builders/docker

@@ -19,7 +19,13 @@ export function QuickJump({ entries }: { entries: Entry[] }) {
     const term = q.trim().toLowerCase();
     const pages = entries.filter((e) => !term || e.label.toLowerCase().includes(term));
     return term
-      ? [...pages, { href: `/team/candidates?q=${encodeURIComponent(q.trim())}`, label: `Search candidates for “${q.trim()}”` }]
+      ? [
+          ...pages,
+          {
+            href: `/team/candidates?q=${encodeURIComponent(q.trim())}`,
+            label: `Search candidates for “${q.trim()}”`,
+          },
+        ]
       : pages;
   }, [entries, q]);
 

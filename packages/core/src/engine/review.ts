@@ -23,7 +23,10 @@ export function validateScores(rubric: Rubric, scores: Record<string, number>): 
 }
 
 /** Weighted rubric score as a percentage of the scale's maximum. */
-export function rubricPct(rubric: Rubric, scores: Record<string, number>): { pct: number; failedMustPass: boolean } {
+export function rubricPct(
+  rubric: Rubric,
+  scores: Record<string, number>,
+): { pct: number; failedMustPass: boolean } {
   const totalWeight = rubric.criteria.reduce((n, c) => n + c.weight, 0) || rubric.criteria.length;
   const max = scaleMax(rubric);
   let sum = 0;
@@ -58,13 +61,18 @@ export function aggregateReviews(rubric: Rubric, reviews: ReviewInput[]) {
     criteria,
     pct: pcts.length ? round2(pcts.reduce((a, b) => a + b.pct, 0) / pcts.length) : null,
     failedMustPass: pcts.some((p) => p.failedMustPass),
-    recommendations: reviews.map((r) => r.recommendation).filter((r): r is Recommendation => r !== null),
+    recommendations: reviews
+      .map((r) => r.recommendation)
+      .filter((r): r is Recommendation => r !== null),
     divergent,
   };
 }
 
 /** Weighted average of stage scores, re-normalised over the stages that have a score so far. */
-export function compositeScore(weights: Record<string, number>, stagePct: Record<string, number>): number | null {
+export function compositeScore(
+  weights: Record<string, number>,
+  stagePct: Record<string, number>,
+): number | null {
   let sum = 0;
   let used = 0;
   for (const [nodeId, w] of Object.entries(weights)) {

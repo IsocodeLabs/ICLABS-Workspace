@@ -1,11 +1,24 @@
-import { boolean, index, jsonb, numeric, pgEnum, pgTable, text, timestamp } from "drizzle-orm/pg-core";
+import {
+  boolean,
+  index,
+  jsonb,
+  numeric,
+  pgEnum,
+  pgTable,
+  text,
+  timestamp,
+} from "drizzle-orm/pg-core";
 import { id } from "./_shared";
 import { users } from "./auth";
 import { applications } from "./hiring";
 import { stageProgress } from "./stages";
 import { teamMembers } from "./team";
 
-export const assignmentReason = pgEnum("assignment_reason", ["primary", "borderline_second", "manual"]);
+export const assignmentReason = pgEnum("assignment_reason", [
+  "primary",
+  "borderline_second",
+  "manual",
+]);
 export const assignmentStatus = pgEnum("assignment_status", ["assigned", "submitted", "released"]);
 
 export const reviewAssignments = pgTable(
@@ -42,7 +55,9 @@ export const reviews = pgTable(
     stageProgressId: text("stage_progress_id")
       .notNull()
       .references(() => stageProgress.id, { onDelete: "cascade" }),
-    assignmentId: text("assignment_id").references(() => reviewAssignments.id, { onDelete: "set null" }),
+    assignmentId: text("assignment_id").references(() => reviewAssignments.id, {
+      onDelete: "set null",
+    }),
     reviewerId: text("reviewer_id").references(() => teamMembers.id),
     kind: reviewKind("kind").notNull(),
     scores: jsonb("scores").$type<Record<string, number>>().notNull(),
@@ -57,7 +72,13 @@ export const reviews = pgTable(
   (t) => [index("reviews_progress_idx").on(t.stageProgressId)],
 );
 
-export const decisionAction = pgEnum("decision_action", ["advance", "reject", "hold", "reopen", "complete"]);
+export const decisionAction = pgEnum("decision_action", [
+  "advance",
+  "reject",
+  "hold",
+  "reopen",
+  "complete",
+]);
 
 /** Every human or rule decision about an application, for the audit trail and pipeline. */
 export const decisions = pgTable(

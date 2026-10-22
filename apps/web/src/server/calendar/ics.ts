@@ -12,7 +12,11 @@ export function buildIcs(input: {
   attendeeEmail: string;
   now?: Date;
 }): string {
-  const stamp = (d: Date) => d.toISOString().replace(/[-:]/g, "").replace(/\.\d{3}/, "");
+  const stamp = (d: Date) =>
+    d
+      .toISOString()
+      .replace(/[-:]/g, "")
+      .replace(/\.\d{3}/, "");
   const text = (s: string) =>
     s.replace(/\\/g, "\\\\").replace(/;/g, "\\;").replace(/,/g, "\\,").replace(/\r?\n/g, "\\n");
   const lines = [
@@ -37,7 +41,5 @@ export function buildIcs(input: {
     "END:VCALENDAR",
   ];
   // Fold lines longer than 75 octets.
-  return lines
-    .map((l) => (l.length <= 75 ? l : l.match(/.{1,74}/g)!.join("\r\n ")))
-    .join("\r\n");
+  return lines.map((l) => (l.length <= 75 ? l : l.match(/.{1,74}/g)!.join("\r\n "))).join("\r\n");
 }

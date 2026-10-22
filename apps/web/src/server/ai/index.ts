@@ -9,7 +9,11 @@ export function aiReviewer(): AiReviewer {
     const e = env();
     reviewer =
       e.AI_REVIEW_ENABLED && e.VERTEX_PROJECT_ID
-        ? createVertexReviewer({ projectId: e.VERTEX_PROJECT_ID, region: e.VERTEX_REGION, model: e.CLAUDE_MODEL })
+        ? createVertexReviewer({
+            projectId: e.VERTEX_PROJECT_ID,
+            region: e.VERTEX_REGION,
+            model: e.CLAUDE_MODEL,
+          })
         : disabledReviewer;
   }
   return reviewer;

@@ -36,7 +36,12 @@ function SlotDialog({
   /** A Google Meet interview: offer a link field for when Calendar can't make one. */
   meet: boolean;
   initialLink?: string;
-  onSubmit: (input: { startsAt: string; interviewerIds: string[]; force?: boolean; meetUrl?: string }) => Promise<InterviewActionResult>;
+  onSubmit: (input: {
+    startsAt: string;
+    interviewerIds: string[];
+    force?: boolean;
+    meetUrl?: string;
+  }) => Promise<InterviewActionResult>;
   onClose: (done?: boolean) => void;
 }) {
   const [when, setWhen] = useState("");
@@ -56,7 +61,12 @@ function SlotDialog({
     const t = setTimeout(
       () =>
         startCheck(async () => {
-          const res = await availabilityAction({ interviewerIds: panel, startsAt, durationMin, exceptInterviewId });
+          const res = await availabilityAction({
+            interviewerIds: panel,
+            startsAt,
+            durationMin,
+            exceptInterviewId,
+          });
           if ("busy" in res) setBusy(res.busy);
         }),
       300,
@@ -67,7 +77,12 @@ function SlotDialog({
   const submit = (force: boolean) =>
     start(async () => {
       setError(null);
-      const res = await onSubmit({ startsAt, interviewerIds: panel, force, meetUrl: link.trim() || undefined });
+      const res = await onSubmit({
+        startsAt,
+        interviewerIds: panel,
+        force,
+        meetUrl: link.trim() || undefined,
+      });
       if (res.ok) onClose(true);
       else {
         setError(res.error);
@@ -79,7 +94,9 @@ function SlotDialog({
       }
     });
 
-  const sorted = [...people].sort((a, b) => Number(initialPanel.includes(b.id)) - Number(initialPanel.includes(a.id)));
+  const sorted = [...people].sort(
+    (a, b) => Number(initialPanel.includes(b.id)) - Number(initialPanel.includes(a.id)),
+  );
   return (
     <Dialog
       open
@@ -87,11 +104,19 @@ function SlotDialog({
       title={title}
       footer={
         <>
-          <Btn variant="secondary" onClick={() => onClose()}>Cancel</Btn>
+          <Btn variant="secondary" onClick={() => onClose()}>
+            Cancel
+          </Btn>
           {busy && busy.length > 0 ? (
-            <Btn variant="danger" disabled={pending || !startsAt} onClick={() => submit(true)}>Book anyway</Btn>
+            <Btn variant="danger" disabled={pending || !startsAt} onClick={() => submit(true)}>
+              Book anyway
+            </Btn>
           ) : (
-            <Btn variant="gradient" disabled={pending || !startsAt || panel.length === 0} onClick={() => submit(false)}>
+            <Btn
+              variant="gradient"
+              disabled={pending || !startsAt || panel.length === 0}
+              onClick={() => submit(false)}
+            >
               {pending ? "Booking…" : "Book & send invite"}
             </Btn>
           )}
@@ -99,16 +124,31 @@ function SlotDialog({
       }
     >
       {error && <Alert>{error}</Alert>}
-      <label className="mb-1 block text-sm font-semibold" htmlFor="when">Start time ({durationMin} min)</label>
-      <Input id="when" type="datetime-local" step={900} value={when} onChange={(e) => setWhen(e.target.value)} />
+      <label className="mb-1 block text-sm font-semibold" htmlFor="when">
+        Start time ({durationMin} min)
+      </label>
+      <Input
+        id="when"
+        type="datetime-local"
+        step={900}
+        value={when}
+        onChange={(e) => setWhen(e.target.value)}
+      />
       <p className="mt-4 mb-1 text-sm font-semibold">Panel</p>
       <div className="max-h-48 space-y-1 overflow-y-auto rounded-xl border border-border p-2">
         {sorted.map((p) => (
-          <label key={p.id} className="flex items-center gap-2 rounded-lg px-2 py-1 hover:bg-neutral-bg">
+          <label
+            key={p.id}
+            className="flex items-center gap-2 rounded-lg px-2 py-1 hover:bg-neutral-bg"
+          >
             <input
               type="checkbox"
               checked={panel.includes(p.id)}
-              onChange={(e) => setPanel((cur) => (e.target.checked ? [...cur, p.id] : cur.filter((x) => x !== p.id)))}
+              onChange={(e) =>
+                setPanel((cur) =>
+                  e.target.checked ? [...cur, p.id] : cur.filter((x) => x !== p.id),
+                )
+              }
             />
             <span className="flex-1 text-sm">{p.email}</span>
             {initialPanel.includes(p.id) && <span className="text-xs text-muted">in pool</span>}
@@ -118,10 +158,14 @@ function SlotDialog({
       <div className="mt-3 min-h-6 text-sm" aria-live="polite">
         {checking && <span className="text-muted">Checking calendars…</span>}
         {!checking && busy && busy.length === 0 && (
-          <span className="inline-flex items-center gap-1.5 text-success-fg"><CheckCircle2 size={16} aria-hidden /> Everyone's free</span>
+          <span className="inline-flex items-center gap-1.5 text-success-fg">
+            <CheckCircle2 size={16} aria-hidden /> Everyone's free
+          </span>
         )}
         {!checking && busy && busy.length > 0 && (
-          <span className="inline-flex items-center gap-1.5 text-warning-fg"><AlertTriangle size={16} aria-hidden /> Busy: {busy.join(", ")}</span>
+          <span className="inline-flex items-center gap-1.5 text-warning-fg">
+            <AlertTriangle size={16} aria-hidden /> Busy: {busy.join(", ")}
+          </span>
         )}
       </div>
       {meet && (
@@ -138,12 +182,14 @@ function SlotDialog({
             aria-invalid={needsLink && !link.trim()}
           />
           <p className="mt-1 text-xs text-muted">
-            Leave empty to have Google Calendar create a Meet link. Paste one if Calendar isn&apos;t connected.
+            Leave empty to have Google Calendar create a Meet link. Paste one if Calendar isn&apos;t
+            connected.
           </p>
         </>
       )}
       <p className="mt-3 text-xs text-muted">
-        Adds a Google Calendar event for the panel when Calendar is connected, and emails the candidate an invite (.ics).
+        Adds a Google Calendar event for the panel when Calendar is connected, and emails the
+        candidate an invite (.ics).
       </p>
     </Dialog>
   );
@@ -194,7 +240,13 @@ export function InterviewControls({
   people,
   mode,
 }: {
-  interview: { id: string; durationMin: number; interviewerIds: string[]; mode?: string; meetUrl?: string | null };
+  interview: {
+    id: string;
+    durationMin: number;
+    interviewerIds: string[];
+    mode?: string;
+    meetUrl?: string | null;
+  };
   people: Person[];
   mode: "upcoming" | "outcome";
 }) {
@@ -213,17 +265,42 @@ export function InterviewControls({
   if (mode === "outcome")
     return (
       <div className="flex items-center gap-2">
-        {error && <span role="alert" className="text-sm text-danger-fg">{error}</span>}
-        <Btn size="sm" disabled={pending} onClick={() => act(() => outcomeAction(interview.id, "done"))}>Done</Btn>
-        <Btn size="sm" variant="secondary" disabled={pending} onClick={() => act(() => outcomeAction(interview.id, "no_show"))}>No-show</Btn>
+        {error && (
+          <span role="alert" className="text-sm text-danger-fg">
+            {error}
+          </span>
+        )}
+        <Btn
+          size="sm"
+          disabled={pending}
+          onClick={() => act(() => outcomeAction(interview.id, "done"))}
+        >
+          Done
+        </Btn>
+        <Btn
+          size="sm"
+          variant="secondary"
+          disabled={pending}
+          onClick={() => act(() => outcomeAction(interview.id, "no_show"))}
+        >
+          No-show
+        </Btn>
       </div>
     );
 
   return (
     <div className="flex items-center gap-1">
-      {error && <span role="alert" className="text-sm text-danger-fg">{error}</span>}
-      <Btn size="sm" variant="ghost" onClick={() => setMoving(true)}>Move</Btn>
-      <Btn size="sm" variant="ghost" className="text-danger-fg" onClick={() => setCancelling(true)}>Cancel</Btn>
+      {error && (
+        <span role="alert" className="text-sm text-danger-fg">
+          {error}
+        </span>
+      )}
+      <Btn size="sm" variant="ghost" onClick={() => setMoving(true)}>
+        Move
+      </Btn>
+      <Btn size="sm" variant="ghost" className="text-danger-fg" onClick={() => setCancelling(true)}>
+        Cancel
+      </Btn>
       {moving && (
         <SlotDialog
           title="Move interview"

@@ -19,7 +19,9 @@ export const INTEGRITY_HIGH = { awayEvents: 5, pastes: 3 };
 export type Integrity = Awaited<ReturnType<typeof integritySummary>>;
 
 export const isIntegrityHigh = (i: Integrity | null) =>
-  !!i && (i.tabSwitches + i.fullscreenExits >= INTEGRITY_HIGH.awayEvents || i.pasteAttempts >= INTEGRITY_HIGH.pastes);
+  !!i &&
+  (i.tabSwitches + i.fullscreenExits >= INTEGRITY_HIGH.awayEvents ||
+    i.pasteAttempts >= INTEGRITY_HIGH.pastes);
 
 const asAnswers = (data: Record<string, unknown>) =>
   Object.fromEntries(
@@ -29,7 +31,12 @@ const asAnswers = (data: Record<string, unknown>) =>
   ) as Record<string, string | string[]>;
 
 /** Human-review aggregate for one stage, or null when it has no rubric or no reviews yet. */
-export async function stageReviewAggregate(db: Db, pinned: PinnedApplication, progressId: string, nodeId: string) {
+export async function stageReviewAggregate(
+  db: Db,
+  pinned: PinnedApplication,
+  progressId: string,
+  nodeId: string,
+) {
   const node = pinned.config.nodes.find((n) => n.id === nodeId);
   const rows = await db
     .select({ scores: reviews.scores, recommendation: reviews.recommendation })
@@ -58,8 +65,14 @@ export function compositeFor(config: PinnedApplication["config"], scores: Record
 }
 
 /** Best score per stage so far: human rubric score where reviewed, otherwise the auto score. */
-export async function stageScores(db: Db, pinned: PinnedApplication): Promise<Record<string, number>> {
-  const rows = await db.select().from(stageProgress).where(eq(stageProgress.applicationId, pinned.app.id));
+export async function stageScores(
+  db: Db,
+  pinned: PinnedApplication,
+): Promise<Record<string, number>> {
+  const rows = await db
+    .select()
+    .from(stageProgress)
+    .where(eq(stageProgress.applicationId, pinned.app.id));
   const out: Record<string, number> = {};
   for (const p of rows) {
     const agg = await stageReviewAggregate(db, pinned, p.id, p.nodeId);
@@ -110,5 +123,8 @@ export async function buildRuleContext(
 /** Stage progress rows for many applications at once (pipeline). */
 export async function progressFor(db: Db, applicationIds: string[]) {
   if (applicationIds.length === 0) return [];
-  return db.select().from(stageProgress).where(inArray(stageProgress.applicationId, applicationIds));
+  return db
+    .select()
+    .from(stageProgress)
+    .where(inArray(stageProgress.applicationId, applicationIds));
 }

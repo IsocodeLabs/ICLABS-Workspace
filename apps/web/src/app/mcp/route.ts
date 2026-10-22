@@ -25,13 +25,22 @@ async function handle(req: Request) {
   const grant = await verifyAccessToken(db(), bearer);
   if (!grant) return unauthorized();
   if (!(await mcpEnabled(db())))
-    return new Response(JSON.stringify({ error: "The workspace MCP server is turned off." }), { status: 503 });
-  if (rateLimitHit(grant.grantId)) return new Response(JSON.stringify({ error: "rate_limited" }), { status: 429, headers: { "Retry-After": "60" } });
+    return new Response(JSON.stringify({ error: "The workspace MCP server is turned off." }), {
+      status: 503,
+    });
+  if (rateLimitHit(grant.grantId))
+    return new Response(JSON.stringify({ error: "rate_limited" }), {
+      status: 429,
+      headers: { "Retry-After": "60" },
+    });
   const actor = await loadActor(db(), grant.userId);
   if (actor?.kind !== "team" || actor.role !== "admin" || !actor.active) return unauthorized();
 
   const server = buildMcpServer(db(), actor, progressionDeps());
-  const transport = new WebStandardStreamableHTTPServerTransport({ sessionIdGenerator: undefined, enableJsonResponse: true });
+  const transport = new WebStandardStreamableHTTPServerTransport({
+    sessionIdGenerator: undefined,
+    enableJsonResponse: true,
+  });
   await server.connect(transport);
   try {
     return await transport.handleRequest(req, {

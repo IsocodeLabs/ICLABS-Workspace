@@ -14,7 +14,10 @@ export function NewPasswordForm({ token }: { token: string | null }) {
     return (
       <>
         <Alert>{t("errors.link")}</Alert>
-        <Link href="/team/set-password" className="text-sm font-semibold text-brand-600 hover:underline">
+        <Link
+          href="/team/set-password"
+          className="text-sm font-semibold text-brand-600 hover:underline"
+        >
           {t("again")}
         </Link>
       </>
@@ -34,7 +37,14 @@ export function NewPasswordForm({ token }: { token: string | null }) {
     <form action={action} noValidate>
       {state?.error && <Alert>{t(`errors.${state.error}` as "errors.mismatch")}</Alert>}
       <input type="hidden" name="token" value={token} />
-      <Field label={t("new")} id="newPassword" type="password" autoComplete="new-password" minLength={10} required />
+      <Field
+        label={t("new")}
+        id="newPassword"
+        type="password"
+        autoComplete="new-password"
+        minLength={10}
+        required
+      />
       <Field
         label={t("confirm")}
         id="confirmPassword"

@@ -6,7 +6,10 @@ import { requireTeam } from "@/server/auth/session";
 import { checkAuthorizeRequest, issueCode } from "@/server/mcp/oauth";
 
 /** Allow or deny the Claude client, then hand control back to it. */
-export async function decideAuthorization(params: Record<string, string>, allow: boolean): Promise<void> {
+export async function decideAuthorization(
+  params: Record<string, string>,
+  allow: boolean,
+): Promise<void> {
   const { actor } = await requireTeam(["admin"]);
   const req = await checkAuthorizeRequest(db(), params);
   if (!req.ok) throw new Error(req.error);

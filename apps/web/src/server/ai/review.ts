@@ -37,11 +37,17 @@ const outputSchema = z.object({
     z.object({
       criterionId: z.string(),
       score: z.number(),
-      evidence: z.string().describe("A short quote or pointer to the part of the submission that justifies the score."),
+      evidence: z
+        .string()
+        .describe(
+          "A short quote or pointer to the part of the submission that justifies the score.",
+        ),
     }),
   ),
   summary: z.string().describe("Two or three sentences for the reviewer."),
-  missing: z.array(z.string()).describe("Required deliverables or answers that are absent or empty."),
+  missing: z
+    .array(z.string())
+    .describe("Required deliverables or answers that are absent or empty."),
 });
 
 const SYSTEM = `You help a hiring team at Isocode Labs review internship submissions.
@@ -95,10 +101,19 @@ export function toSuggestion(
   }
   const problem = validateScores(rubric, scores);
   if (problem) return problem;
-  return { scores, evidence, summary: out.summary.slice(0, 4000), missing: out.missing.slice(0, 20) };
+  return {
+    scores,
+    evidence,
+    summary: out.summary.slice(0, 4000),
+    missing: out.missing.slice(0, 20),
+  };
 }
 
-export function createVertexReviewer(opts: { projectId: string; region: string; model: string }): AiReviewer {
+export function createVertexReviewer(opts: {
+  projectId: string;
+  region: string;
+  model: string;
+}): AiReviewer {
   return {
     async suggest(input) {
       // Loaded lazily so the SDK only enters the server bundle paths that use it.
@@ -125,17 +140,26 @@ export function createVertexReviewer(opts: { projectId: string; region: string; 
           { fallbackState: new sdk.BetaFallbackState() },
         );
         if (response.stop_reason === "refusal") {
-          return { ok: false, reason: "refused", message: "Claude declined to review this submission." };
+          return {
+            ok: false,
+            reason: "refused",
+            message: "Claude declined to review this submission.",
+          };
         }
         if (!response.parsed_output) {
           return { ok: false, reason: "invalid", message: "Claude's answer couldn't be read." };
         }
         const suggestion = toSuggestion(input.rubric, response.parsed_output);
-        if (typeof suggestion === "string") return { ok: false, reason: "invalid", message: suggestion };
+        if (typeof suggestion === "string")
+          return { ok: false, reason: "invalid", message: suggestion };
         return { ok: true, suggestion, model: response.model };
       } catch (err) {
         console.error("[ai-review] request failed", err instanceof Error ? err.message : err);
-        return { ok: false, reason: "error", message: "Claude is unavailable right now. Try again later." };
+        return {
+          ok: false,
+          reason: "error",
+          message: "Claude is unavailable right now. Try again later.",
+        };
       }
     },
   };

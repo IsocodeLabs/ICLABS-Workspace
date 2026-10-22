@@ -23,7 +23,9 @@ export type EventInput = {
 export interface CalendarClient {
   /** Busy windows per email address between `from` and `to`. */
   freeBusy(emails: string[], from: Date, to: Date): Promise<Record<string, BusyWindow[]>>;
-  createEvent(input: EventInput & { requestId: string }): Promise<{ eventId: string; meetUrl: string | null }>;
+  createEvent(
+    input: EventInput & { requestId: string },
+  ): Promise<{ eventId: string; meetUrl: string | null }>;
   updateEvent(eventId: string, input: EventInput): Promise<{ meetUrl: string | null }>;
   cancelEvent(eventId: string): Promise<void>;
 }
@@ -80,33 +82,59 @@ export function createGoogleCalendar(opts: {
     guestsCanSeeOtherGuests: false,
     reminders: { useDefault: true },
   });
-  type GEvent = { id: string; hangoutLink?: string; conferenceData?: { entryPoints?: { entryPointType: string; uri: string }[] } };
-  const meetOf = (e: GEvent) => e.hangoutLink ?? e.conferenceData?.entryPoints?.find((p) => p.entryPointType === "video")?.uri ?? null;
+  type GEvent = {
+    id: string;
+    hangoutLink?: string;
+    conferenceData?: { entryPoints?: { entryPointType: string; uri: string }[] };
+  };
+  const meetOf = (e: GEvent) =>
+    e.hangoutLink ??
+    e.conferenceData?.entryPoints?.find((p) => p.entryPointType === "video")?.uri ??
+    null;
 
   return {
     async freeBusy(emails, from, to) {
-      const res = await call<{ calendars: Record<string, { busy: { start: string; end: string }[] }> }>("POST", "/freeBusy", {
+      const res = await call<{
+        calendars: Record<string, { busy: { start: string; end: string }[] }>;
+      }>("POST", "/freeBusy", {
         timeMin: from.toISOString(),
         timeMax: to.toISOString(),
         timeZone: "Asia/Kolkata",
         items: emails.map((id) => ({ id })),
       });
       return Object.fromEntries(
-        emails.map((e) => [e, (res.calendars[e]?.busy ?? []).map((b) => ({ start: new Date(b.start), end: new Date(b.end) }))]),
+        emails.map((e) => [
+          e,
+          (res.calendars[e]?.busy ?? []).map((b) => ({
+            start: new Date(b.start),
+            end: new Date(b.end),
+          })),
+        ]),
       );
     },
     async createEvent(input) {
       const body = {
         ...eventBody(input),
         ...(input.withMeet
-          ? { conferenceData: { createRequest: { requestId: input.requestId, conferenceSolutionKey: { type: "hangoutsMeet" } } } }
+          ? {
+              conferenceData: {
+                createRequest: {
+                  requestId: input.requestId,
+                  conferenceSolutionKey: { type: "hangoutsMeet" },
+                },
+              },
+            }
           : {}),
       };
       const e = await call<GEvent>("POST", `${cal}?conferenceDataVersion=1&sendUpdates=none`, body);
       return { eventId: e.id, meetUrl: meetOf(e) };
     },
     async updateEvent(eventId, input) {
-      const e = await call<GEvent>("PATCH", `${cal}/${encodeURIComponent(eventId)}?conferenceDataVersion=1&sendUpdates=none`, eventBody(input));
+      const e = await call<GEvent>(
+        "PATCH",
+        `${cal}/${encodeURIComponent(eventId)}?conferenceDataVersion=1&sendUpdates=none`,
+        eventBody(input),
+      );
       return { meetUrl: meetOf(e) };
     },
     async cancelEvent(eventId) {

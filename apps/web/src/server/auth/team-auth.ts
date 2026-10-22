@@ -58,7 +58,8 @@ export async function startTeamSignIn(
     [`team-login:ip:${input.ip}`, LOGIN_RATE_LIMITS.ip],
   ] as const) {
     const limit = await hitRateLimit(db, key, rule, now);
-    if (!limit.allowed) return { ok: false, reason: "rate_limited", retryAfterMs: limit.retryAfterMs };
+    if (!limit.allowed)
+      return { ok: false, reason: "rate_limited", retryAfterMs: limit.retryAfterMs };
   }
 
   const [user] = await db
@@ -81,7 +82,11 @@ export async function startTeamSignIn(
 
   const state = { failedCount: user.failedLoginCount, lockedUntil: user.lockedUntil };
   if (isLocked(state, now))
-    return { ok: false, reason: "locked", retryAfterMs: state.lockedUntil!.getTime() - now.getTime() };
+    return {
+      ok: false,
+      reason: "locked",
+      retryAfterMs: state.lockedUntil!.getTime() - now.getTime(),
+    };
 
   if (!(await verifyPassword(user.passwordHash, input.password))) {
     const { state: next, justLocked } = registerFailure(state, now);
@@ -90,9 +95,18 @@ export async function startTeamSignIn(
       .set({ failedLoginCount: next.failedCount, lockedUntil: next.lockedUntil })
       .where(eq(users.id, user.id));
     if (justLocked) {
-      await audit(db, { actorUserId: null, action: "account_locked", entity: "user", entityId: user.id });
+      await audit(db, {
+        actorUserId: null,
+        action: "account_locked",
+        entity: "user",
+        entityId: user.id,
+      });
       await deps.notifier.accountLocked(email);
-      return { ok: false, reason: "locked", retryAfterMs: next.lockedUntil!.getTime() - now.getTime() };
+      return {
+        ok: false,
+        reason: "locked",
+        retryAfterMs: next.lockedUntil!.getTime() - now.getTime(),
+      };
     }
     return { ok: false, reason: "invalid" };
   }
@@ -109,7 +123,11 @@ export async function startTeamSignIn(
   await db.delete(verifications).where(lt(verifications.expiresAt, now));
   await db.insert(verifications).values({
     identifier: identifierFor(challenge),
-    value: JSON.stringify({ userId: user.id, codeHash: codeHash(challenge, code), attempts: 0 } satisfies Challenge),
+    value: JSON.stringify({
+      userId: user.id,
+      codeHash: codeHash(challenge, code),
+      attempts: 0,
+    } satisfies Challenge),
     expiresAt: new Date(now.getTime() + CODE_TTL_MS),
   });
   await deps.sendCode({ email, userId: user.id, code });
@@ -128,14 +146,19 @@ export async function verifyTeamCode(
   now = new Date(),
 ): Promise<VerifyCodeResult> {
   const identifier = identifierFor(input.challenge);
-  const [row] = await db.select().from(verifications).where(eq(verifications.identifier, identifier));
+  const [row] = await db
+    .select()
+    .from(verifications)
+    .where(eq(verifications.identifier, identifier));
   if (!row || row.expiresAt < now) {
     if (row) await db.delete(verifications).where(eq(verifications.id, row.id));
     return { ok: false, reason: "expired" };
   }
   const data = JSON.parse(row.value) as Challenge;
   const given = codeHash(input.challenge, input.code.replace(/\s+/g, ""));
-  const match = given.length === data.codeHash.length && timingSafeEqual(Buffer.from(given), Buffer.from(data.codeHash));
+  const match =
+    given.length === data.codeHash.length &&
+    timingSafeEqual(Buffer.from(given), Buffer.from(data.codeHash));
   if (!match) {
     const attempts = data.attempts + 1;
     if (attempts >= MAX_CODE_ATTEMPTS) {
@@ -161,7 +184,10 @@ export async function verifyTeamCode(
 export async function prepareTeamPasswordSetup(db: Db, rawEmail: string, teamDomain: string) {
   const email = normalize(rawEmail);
   if (!(await activeMember(db, email, teamDomain))) return false;
-  const [existing] = await db.select({ id: users.id, kind: users.kind }).from(users).where(eq(users.email, email));
+  const [existing] = await db
+    .select({ id: users.id, kind: users.kind })
+    .from(users)
+    .where(eq(users.email, email));
   if (existing) return existing.kind === "team";
   await db
     .insert(users)

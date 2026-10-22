@@ -80,11 +80,13 @@ describe("request signing", () => {
 
   it("refuses a wrong secret, an edited body, or an old timestamp", () => {
     const signature = signCareersRequest(SECRET, ts, body);
-    expect(verifyCareersRequest("x".repeat(40), { timestamp: ts, signature }, body, now)).toBe(false);
+    expect(verifyCareersRequest("x".repeat(40), { timestamp: ts, signature }, body, now)).toBe(
+      false,
+    );
     expect(verifyCareersRequest(SECRET, { timestamp: ts, signature }, body + " ", now)).toBe(false);
-    expect(
-      verifyCareersRequest(SECRET, { timestamp: ts, signature }, body, now + 6 * 60_000),
-    ).toBe(false);
+    expect(verifyCareersRequest(SECRET, { timestamp: ts, signature }, body, now + 6 * 60_000)).toBe(
+      false,
+    );
     expect(verifyCareersRequest(SECRET, { timestamp: null, signature }, body, now)).toBe(false);
   });
 });

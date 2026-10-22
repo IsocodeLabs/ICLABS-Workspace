@@ -42,6 +42,10 @@ export function connectionOptions(url: string): { url: string; host?: string } {
 
 export function createDb(url: string, opts: { max?: number } = {}): Db {
   const conn = connectionOptions(url);
-  const client = postgres(conn.url, { max: opts.max ?? 10, prepare: false, ...(conn.host ? { host: conn.host } : {}) });
+  const client = postgres(conn.url, {
+    max: opts.max ?? 10,
+    prepare: false,
+    ...(conn.host ? { host: conn.host } : {}),
+  });
   return drizzle(client, { schema });
 }

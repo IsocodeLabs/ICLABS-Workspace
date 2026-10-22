@@ -11,10 +11,17 @@ export async function POST(req: Request) {
     : new URLSearchParams(await req.text());
   const res = await exchangeToken(db(), form);
   const headers = { ...cors, "Cache-Control": "no-store" };
-  if (!res.ok) return NextResponse.json({ error: res.error, error_description: res.description }, { status: 400, headers });
+  if (!res.ok)
+    return NextResponse.json(
+      { error: res.error, error_description: res.description },
+      { status: 400, headers },
+    );
   return NextResponse.json(res.body, { headers });
 }
 
 export function OPTIONS() {
-  return new NextResponse(null, { status: 204, headers: { ...cors, "Access-Control-Allow-Methods": "POST" } });
+  return new NextResponse(null, {
+    status: 204,
+    headers: { ...cors, "Access-Control-Allow-Methods": "POST" },
+  });
 }

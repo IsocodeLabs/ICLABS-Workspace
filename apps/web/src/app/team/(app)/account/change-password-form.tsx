@@ -13,8 +13,21 @@ export function ChangePasswordForm() {
     <form action={action} noValidate>
       {state?.done && <Alert tone="success">{t("changed")}</Alert>}
       {state?.error && <Alert>{t(`errors.${state.error}` as "errors.mismatch")}</Alert>}
-      <Field label={t("current")} id="currentPassword" type="password" autoComplete="current-password" required />
-      <Field label={t("new")} id="newPassword" type="password" autoComplete="new-password" minLength={10} required />
+      <Field
+        label={t("current")}
+        id="currentPassword"
+        type="password"
+        autoComplete="current-password"
+        required
+      />
+      <Field
+        label={t("new")}
+        id="newPassword"
+        type="password"
+        autoComplete="new-password"
+        minLength={10}
+        required
+      />
       <Field
         label={t("confirm")}
         id="confirmPassword"

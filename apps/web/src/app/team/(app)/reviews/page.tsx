@@ -26,12 +26,18 @@ function Row({ item }: { item: QueueItem }) {
           {item.stageTitle} · {item.roleTitle}
         </p>
       </div>
-      {item.reason === "borderline_second" && <StatusPill tone="warning">Second opinion</StatusPill>}
+      {item.reason === "borderline_second" && (
+        <StatusPill tone="warning">Second opinion</StatusPill>
+      )}
       {item.late && <StatusPill tone="warning">Late</StatusPill>}
       <span className="flex items-center gap-1 text-sm text-muted">
         <Clock size={14} aria-hidden /> {ago(item.submittedAt ?? item.assignedAt)}
       </span>
-      <ArrowRight size={18} className="text-muted transition group-hover:translate-x-0.5 group-hover:text-brand-500" aria-hidden />
+      <ArrowRight
+        size={18}
+        className="text-muted transition group-hover:translate-x-0.5 group-hover:text-brand-500"
+        aria-hidden
+      />
     </Link>
   );
 }
@@ -57,7 +63,10 @@ export default async function ReviewsPage() {
 
       <section className="space-y-2">
         {queue.open.length === 0 ? (
-          <EmptyState title="You're all caught up" body="New submissions assigned to you show up here and in your notifications." />
+          <EmptyState
+            title="You're all caught up"
+            body="New submissions assigned to you show up here and in your notifications."
+          />
         ) : (
           queue.open.map((i) => <Row key={i.assignmentId} item={i} />)
         )}

@@ -13,7 +13,14 @@ import {
   teamMembers,
   type Db,
 } from "@iclabs/db";
-import { isBorderline, rubricPct, taskSubmissionFields, validateScores, type Actor, type Recommendation } from "@iclabs/core";
+import {
+  isBorderline,
+  rubricPct,
+  taskSubmissionFields,
+  validateScores,
+  type Actor,
+  type Recommendation,
+} from "@iclabs/core";
 import { assertCan, audit } from "../audit";
 import type { AiReviewInput, AiReviewer } from "../ai/review";
 import { advanceFrom, loadPinned, notifyAdmins, type ProgressionDeps } from "../stages/progression";
@@ -62,8 +69,10 @@ export async function submitReview(
   const loaded = await loadOwnAssignment(db, actor, assignmentId);
   if (!loaded) return { ok: false as const, error: "This review isn't assigned to you." };
   const { assignment, pinned, node } = loaded;
-  if (assignment.status !== "assigned") return { ok: false as const, error: "You've already submitted this review." };
-  if (CLOSED.has(pinned.app.status)) return { ok: false as const, error: "This application is closed." };
+  if (assignment.status !== "assigned")
+    return { ok: false as const, error: "You've already submitted this review." };
+  if (CLOSED.has(pinned.app.status))
+    return { ok: false as const, error: "This application is closed." };
 
   let totalPct: number | null = null;
   if (node.rubric) {
@@ -84,13 +93,20 @@ export async function submitReview(
     notes,
     acceptedFromAi: !!input.acceptedFromAi,
   });
-  await db.update(reviewAssignments).set({ status: "submitted" }).where(eq(reviewAssignments.id, assignmentId));
+  await db
+    .update(reviewAssignments)
+    .set({ status: "submitted" })
+    .where(eq(reviewAssignments.id, assignmentId));
   await audit(db, {
     actorUserId: actor.userId,
     action: "review_submitted",
     entity: "stage_progress",
     entityId: assignment.stageProgressId,
-    after: { totalPct, recommendation: input.recommendation, acceptedFromAi: !!input.acceptedFromAi },
+    after: {
+      totalPct,
+      recommendation: input.recommendation,
+      acceptedFromAi: !!input.acceptedFromAi,
+    },
   });
   const outcome = await concludeIfReady(db, deps, assignment.stageProgressId);
   return { ok: true as const, outcome };
@@ -143,7 +159,12 @@ export async function concludeIfReady(db: Db, deps: ProgressionDeps, progressId:
 // ─── AI suggestions ─────────────────────────────────────────────────────────
 
 /** The submission as labelled text for Claude. Files are named, not read. */
-export async function submissionForAi(db: Db, progressId: string, nodeId: string, applicationId: string) {
+export async function submissionForAi(
+  db: Db,
+  progressId: string,
+  nodeId: string,
+  applicationId: string,
+) {
   const pinned = await loadPinned(db, applicationId);
   const node = pinned.config.nodes.find((n) => n.id === nodeId);
   if (!node?.rubric) return null;
@@ -168,7 +189,10 @@ export async function submissionForAi(db: Db, progressId: string, nodeId: string
       .limit(1);
     const data = (latest?.data ?? {}) as Record<string, unknown>;
     const fileRows = latest?.fileIds.length
-      ? await db.select({ id: files.id, filename: files.filename }).from(files).where(inArray(files.id, latest.fileIds))
+      ? await db
+          .select({ id: files.id, filename: files.filename })
+          .from(files)
+          .where(inArray(files.id, latest.fileIds))
       : [];
     const labelled =
       node.type === "task"
@@ -183,12 +207,19 @@ export async function submissionForAi(db: Db, progressId: string, nodeId: string
       const text = Array.isArray(v) ? v.join(", ") : v == null ? "" : String(v);
       answers.push({
         label: f.label,
-        value: f.file && text ? `[File uploaded: ${fileRows.find((r) => r.id === text)?.filename ?? "file"} — not shown here]` : text,
+        value:
+          f.file && text
+            ? `[File uploaded: ${fileRows.find((r) => r.id === text)?.filename ?? "file"} — not shown here]`
+            : text,
       });
     }
   }
   const instructions =
-    node.type === "task" ? node.config.brief : node.type === "review_gate" ? (node.config.instructions ?? "") : (node.description ?? "");
+    node.type === "task"
+      ? node.config.brief
+      : node.type === "review_gate"
+        ? (node.config.instructions ?? "")
+        : (node.description ?? "");
   return {
     stageTitle: node.title,
     stageType: node.type,
@@ -202,17 +233,35 @@ export async function submissionForAi(db: Db, progressId: string, nodeId: string
  * Asks Claude for suggested scores. Admins only (like the MCP server); stored once per stage,
  * and the assigned reviewer sees it beside the rubric as a suggestion.
  */
-export async function requestAiSuggestion(db: Db, actor: TeamActor, assignmentId: string, ai: AiReviewer) {
+export async function requestAiSuggestion(
+  db: Db,
+  actor: TeamActor,
+  assignmentId: string,
+  ai: AiReviewer,
+) {
   if (actor.role !== "admin") return { ok: false as const, error: "Only admins can ask Claude." };
-  const [assignment] = await db.select().from(reviewAssignments).where(eq(reviewAssignments.id, assignmentId));
+  const [assignment] = await db
+    .select()
+    .from(reviewAssignments)
+    .where(eq(reviewAssignments.id, assignmentId));
   if (!assignment) return { ok: false as const, error: "Review not found." };
   const [existing] = await db
     .select()
     .from(reviews)
-    .where(and(eq(reviews.stageProgressId, assignment.stageProgressId), eq(reviews.kind, "ai_suggestion")));
+    .where(
+      and(
+        eq(reviews.stageProgressId, assignment.stageProgressId),
+        eq(reviews.kind, "ai_suggestion"),
+      ),
+    );
   if (existing) return { ok: true as const, suggestionId: existing.id };
 
-  const input = await submissionForAi(db, assignment.stageProgressId, assignment.nodeId, assignment.applicationId);
+  const input = await submissionForAi(
+    db,
+    assignment.stageProgressId,
+    assignment.nodeId,
+    assignment.applicationId,
+  );
   if (!input) return { ok: false as const, error: "This stage has no rubric to score against." };
   const result = await ai.suggest(input);
   if (!result.ok) return { ok: false as const, error: result.message };
@@ -223,7 +272,10 @@ export async function requestAiSuggestion(db: Db, actor: TeamActor, assignmentId
       kind: "ai_suggestion",
       scores: result.suggestion.scores,
       totalPct: rubricPct(input.rubric, result.suggestion.scores).pct,
-      notes: [result.suggestion.summary, ...result.suggestion.missing.map((m) => `Missing: ${m}`)].join("\n"),
+      notes: [
+        result.suggestion.summary,
+        ...result.suggestion.missing.map((m) => `Missing: ${m}`),
+      ].join("\n"),
       evidence: result.suggestion.evidence,
     })
     .returning({ id: reviews.id });
@@ -236,4 +288,3 @@ export async function requestAiSuggestion(db: Db, actor: TeamActor, assignmentId
   });
   return { ok: true as const, suggestionId: row!.id };
 }
-

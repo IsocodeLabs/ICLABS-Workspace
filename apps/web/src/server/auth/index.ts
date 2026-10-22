@@ -63,7 +63,11 @@ export function auth(): Auth {
         });
       },
       // nextCookies stays last so cookies set by other plugins reach the browser.
-      plugins: [teamOtpPlugin(db()), ...(devTeamLoginEnabled() ? [testUtils()] : []), nextCookies()],
+      plugins: [
+        teamOtpPlugin(db()),
+        ...(devTeamLoginEnabled() ? [testUtils()] : []),
+        nextCookies(),
+      ],
     });
   }
   return instance;

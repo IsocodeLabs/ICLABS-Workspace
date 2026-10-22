@@ -13,7 +13,9 @@ export function TeamLoginForm() {
   return (
     <form action={action} noValidate>
       {state?.error && (
-        <Alert>{t(`errors.${state.error}` as "errors.invalid", { minutes: state.retryMinutes ?? 15 })}</Alert>
+        <Alert>
+          {t(`errors.${state.error}` as "errors.invalid", { minutes: state.retryMinutes ?? 15 })}
+        </Alert>
       )}
       <Field
         label={t("email")}
@@ -23,11 +25,20 @@ export function TeamLoginForm() {
         placeholder="you@isocodelabs.com"
         required
       />
-      <Field label={t("password")} id="password" type="password" autoComplete="current-password" required />
+      <Field
+        label={t("password")}
+        id="password"
+        type="password"
+        autoComplete="current-password"
+        required
+      />
       <Button type="submit" disabled={pending}>
         {pending ? common("loading") : t("submit")}
       </Button>
-      <Link href="/team/set-password" className="mt-4 inline-block text-sm font-semibold text-brand-600 hover:underline">
+      <Link
+        href="/team/set-password"
+        className="mt-4 inline-block text-sm font-semibold text-brand-600 hover:underline"
+      >
         {t("setPassword")}
       </Link>
     </form>

@@ -1,11 +1,25 @@
-import { index, integer, jsonb, pgEnum, pgTable, text, timestamp, uniqueIndex } from "drizzle-orm/pg-core";
+import {
+  index,
+  integer,
+  jsonb,
+  pgEnum,
+  pgTable,
+  text,
+  timestamp,
+  uniqueIndex,
+} from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
 import { id, timestamps } from "./_shared";
 import { users } from "./auth";
 import { applications } from "./hiring";
 import { stageProgress } from "./stages";
 
-export const interviewStatus = pgEnum("interview_status", ["scheduled", "cancelled", "done", "no_show"]);
+export const interviewStatus = pgEnum("interview_status", [
+  "scheduled",
+  "cancelled",
+  "done",
+  "no_show",
+]);
 export const interviewMode = pgEnum("interview_mode", ["meet", "phone", "in_person"]);
 
 /** One booked interview. Rescheduling updates the row and the same calendar event. */
@@ -39,7 +53,9 @@ export const interviews = pgTable(
   (t) => [
     index("interviews_starts_idx").on(t.status, t.startsAt),
     // At most one live interview per stage.
-    uniqueIndex("interviews_one_live").on(t.stageProgressId).where(sql`status = 'scheduled'`),
+    uniqueIndex("interviews_one_live")
+      .on(t.stageProgressId)
+      .where(sql`status = 'scheduled'`),
   ],
 );
 
