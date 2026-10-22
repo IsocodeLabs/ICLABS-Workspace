@@ -161,9 +161,10 @@ export function FormStage({
       {fields.map((f) => {
         if (f.kind === "section") {
           return (
-            <h2 key={f.id} className="mb-3 mt-6 font-display text-lg font-semibold first:mt-0">
-              {f.label}
-            </h2>
+            <div key={f.id} className="mb-3 mt-6 first:mt-0">
+              <h2 className="font-display text-lg font-semibold">{f.label}</h2>
+              {f.help && <p className="mt-1 whitespace-pre-line text-sm text-muted">{f.help}</p>}
+            </div>
           );
         }
         const id = `f-${f.id}`;

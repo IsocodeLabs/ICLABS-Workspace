@@ -10,9 +10,11 @@ COPY . .
 RUN pnpm install --frozen-lockfile
 RUN pnpm --filter @iclabs/web build
 
-# Database migrations, then the team bootstrap; run as a Cloud Run job before each rollout.
+# Database migrations, the team bootstrap, then the careers roles' processes (idempotent; never
+# touches a track edited in the builder, and a failure there doesn't block the rollout).
+# Runs as a Cloud Run job before each rollout.
 FROM build AS migrate
-CMD ["sh", "-c", "pnpm --filter @iclabs/db migrate && pnpm --filter @iclabs/web bootstrap"]
+CMD ["sh", "-c", "pnpm --filter @iclabs/db migrate && pnpm --filter @iclabs/web bootstrap && (pnpm --filter @iclabs/web setup-roles || echo 'setup-roles failed; roles left as they were')"]
 
 FROM node:24-alpine AS runtime
 ENV NODE_ENV=production PORT=8080 HOSTNAME=0.0.0.0
