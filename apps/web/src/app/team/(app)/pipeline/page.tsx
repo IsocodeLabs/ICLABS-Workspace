@@ -49,6 +49,7 @@ export default async function PipelinePage({
         />
       ) : (
         <PipelineBoard
+          key={current.id}
           workflowId={current.id}
           nodes={data.nodes}
           cards={data.cards.map((c) => ({

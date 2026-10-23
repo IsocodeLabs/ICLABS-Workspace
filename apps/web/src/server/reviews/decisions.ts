@@ -15,6 +15,7 @@ import {
   workflowVersions,
   workflows,
   isNotNull,
+  ne,
   type Db,
 } from "@iclabs/db";
 import {
@@ -320,7 +321,14 @@ export async function listTracks(db: Db, actor: TeamActor) {
     .from(workflows)
     .innerJoin(cycles, eq(cycles.id, workflows.cycleId))
     .innerJoin(roles, eq(roles.id, cycles.roleId))
-    .where(isNotNull(workflows.publishedVersionId))
+    // Archived roles and rounds (e.g. the folded-away careers duplicates) stay out of the picker.
+    .where(
+      and(
+        isNotNull(workflows.publishedVersionId),
+        ne(roles.status, "archived"),
+        ne(cycles.status, "archived"),
+      ),
+    )
     .orderBy(roles.title, desc(cycles.createdAt), workflows.name);
   return rows.filter((r) =>
     can(actor, "read", { type: "workflow", roleId: r.roleId, workflowId: r.id }),
