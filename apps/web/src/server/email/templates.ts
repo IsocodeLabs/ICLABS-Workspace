@@ -13,6 +13,8 @@ export const TEMPLATE_KEYS = [
   "login_code",
   "stage_unlocked",
   "deadline_reminder",
+  "task_last_extension",
+  "task_prepare",
   "submission_received",
   "not_progressing",
   "interview_scheduled",
@@ -127,6 +129,37 @@ The Isocode Labs hiring team`,
 A quick reminder that {{stage}} for {{role}} closes on {{deadline}}.
 
 [[button:Continue|{{stage_url}}]]
+
+The Isocode Labs hiring team`,
+  },
+  task_last_extension: {
+    description:
+      "Sent by an admin: last extension, tells each person their current step and the task deadline",
+    subject: "{{role}}: last extension, your task is due 26 October",
+    body: `Hi {{first_name}},
+
+This is the last extension for your {{role}} application. You are currently on {{stage}}. Please complete it as soon as you can.
+
+The final deadline to submit the task is 26 October 2026, end of day (11:59 pm IST).
+
+[[button:Open your dashboard|{{stage_url}}]]
+
+In case of any doubt or enquiry, contact hr@isocodelabs.com.
+
+The Isocode Labs hiring team`,
+  },
+  task_prepare: {
+    description: "Sent by an admin: be ready for the task round, details to follow",
+    subject: "{{role}}: get ready for the task round",
+    body: `Hi {{first_name}},
+
+Thank you for completing {{stage}} for {{role}}.
+
+The next round is a task submission. We'll update your workspace with the task very soon, so please be prepared for it and keep an eye on your dashboard.
+
+[[button:Open your dashboard|{{stage_url}}]]
+
+In case of any doubt or enquiry, contact hr@isocodelabs.com.
 
 The Isocode Labs hiring team`,
   },

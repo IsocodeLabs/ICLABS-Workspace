@@ -45,6 +45,13 @@ export default async function CandidatesPage({
       <PageHeader
         title="Candidates"
         subtitle="Invite shortlisted candidates one at a time or from a careers-site CSV."
+        actions={
+          actor.role === "admin" ? (
+            <Link href="/team/candidates/message" className="text-sm font-semibold underline">
+              Message candidates
+            </Link>
+          ) : undefined
+        }
       />
       <InvitePanel roles={roles.map((r) => ({ slug: r.role.slug, title: r.role.title }))} />
       <form className="mt-8 mb-4 max-w-md">
