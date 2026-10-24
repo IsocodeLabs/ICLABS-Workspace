@@ -9,6 +9,7 @@ import {
   candidates,
   notifications,
   roles,
+  stageProgress,
   workflowVersions,
   type Db,
 } from "@iclabs/db";
@@ -113,6 +114,18 @@ export async function roleSpace(db: Db, actor: CandidateActor, applicationId: st
     (s, i) => i >= Math.max(currentIndex, 0) && !!config && decidedByTeam(config, s.id),
   );
   const steps = gate === -1 ? path : path.slice(0, gate + 1);
+  // After the last step before a team decision, the application waits on that step; once the
+  // candidate has submitted it, show it as done (they kept writing in to ask if it arrived).
+  const currentId = currentIndex === -1 ? null : path[currentIndex]!.id;
+  const [currentProgress] = currentId
+    ? await db
+        .select({ submittedAt: stageProgress.submittedAt })
+        .from(stageProgress)
+        .where(
+          and(eq(stageProgress.applicationId, row.app.id), eq(stageProgress.nodeId, currentId)),
+        )
+    : [];
+  const currentSubmitted = !!currentProgress?.submittedAt;
   return {
     applicationId: row.app.id,
     status: row.app.status,
@@ -135,7 +148,9 @@ export async function roleSpace(db: Db, actor: CandidateActor, applicationId: st
           : i < currentIndex
             ? ("done" as const)
             : i === currentIndex
-              ? ("current" as const)
+              ? currentSubmitted
+                ? ("done" as const)
+                : ("current" as const)
               : ("upcoming" as const),
     })),
   };

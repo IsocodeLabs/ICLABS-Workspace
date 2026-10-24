@@ -1,5 +1,13 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { applications, cycles, roles, workflowVersions, workflows, type Db } from "@iclabs/db";
+import {
+  applications,
+  cycles,
+  roles,
+  stageProgress,
+  workflowVersions,
+  workflows,
+  type Db,
+} from "@iclabs/db";
 import { createTestDb } from "@iclabs/db/testing";
 import { createNode, emptyWorkflow } from "@iclabs/core";
 import { loadActor } from "./auth/actor";
@@ -84,6 +92,18 @@ describe("candidate portal", () => {
       ["Take-home", "current"],
     ]);
     expect(await roleSpace(db, actorB as never, app.id)).toBeNull();
+  });
+
+  it("shows a submitted step as done while it waits for the team", async () => {
+    const { actorA, app } = await setup();
+    await db.insert(stageProgress).values({
+      applicationId: app.id,
+      nodeId: app.currentNodeId!,
+      state: "submitted",
+      submittedAt: new Date(),
+    });
+    const space = await roleSpace(db, actorA as never, app.id);
+    expect(space?.steps.map((s) => s.state)).toEqual(["done", "done"]);
   });
 
   it("validates profile updates", async () => {
