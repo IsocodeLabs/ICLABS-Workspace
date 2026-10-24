@@ -100,27 +100,37 @@ Items marked **(verify)** are my reading of the code or request and should be ch
 
 ---
 
-## 6. Fix CV and PDF upload problems reported to hr@isocodelabs.com
+## 6. Remove the CV upload step and fix the Business Development Intern task PDF upload
 
-**Goal:** stop candidates failing on CV and PDF upload.
+**Task (exact):** just remove the CV upload step from the SDE and PM tracks, and the other PDF submission remaining is the task submission of Business Development Intern, so fix any issue there. That is the task.
 
-- Read the mail first. Search all mail to `hr@isocodelabs.com` (Gmail connector, `search_threads`) and list the distinct problems with counts. Do not assume the causes below.
-- **Remove the CV upload option from the SDE and PM role tracks.** We already collected the CV in the payload.
-  - the CV upload is a file field on a form stage in each workflow: use `get_workflow` for both, then `propose_workflow_change`
-  - an admin confirms at `/team/builder/<workflowId>`
-  - make sure nothing else requires the CV (validation, required fields, review screens, the `submission_received` email)
-  - check the candidate-facing form code (`apps/web/src/app/(candidate)/roles/[applicationId]/stages/[nodeId]/form-stage.tsx`)
-- **Fix the PDF upload for tasks.** Upload flow: `file-upload.tsx` asks for a signed URL (`requestUploadAction`), sends the bytes straight to storage, then confirms (`confirmUploadAction`).
-  - server: `apps/web/src/server/storage/files.ts` and `index.ts`
-  - Things to check against the mails **(verify)**:
-    - `checkUpload` requires the declared MIME type to match the extension. Phones and some browsers send an empty type or `application/octet-stream`, or `application/x-pdf`, so valid PDFs get "This file type isn't allowed".
-    - the 25 MB limit (`MAX_UPLOAD_BYTES`)
-    - the bucket needs CORS for `PUT` from `https://workspace.isocodelabs.com`, including the `Content-Type` and `x-goog-content-length-range` headers
-    - the signed URL expires after 10 minutes (slow connections)
-    - `confirmUpload` fails if the stored size differs from the declared size
-    - files stay `scanStatus = pending` if the ClamAV scan never reports back, and `ownCleanFiles` only accepts `clean` files, so the submission fails
-    - the candidate sees a vague error ("Upload failed. Check your connection...") that hides the real cause
-  - Fix what the mails actually show. Make error messages specific and add tests next to the existing ones (`apps/web/src/server/*.test.ts`).
-- Reply to affected candidates only if asked **(verify)**.
+**Goal:** no CV upload in SDE or PM, and the Business Development Intern task PDF upload works for everyone.
 
-**Done when:** an SDE and a PM candidate can submit without a CV step, a PDF from a phone and a desktop uploads and submits, and a failed upload shows a clear reason.
+### 6a. Remove the CV upload from SDE and PM
+
+- Use the MCP (task 1). Role ids from `list_roles_cycles_tracks`:
+  - Software Engineering Intern: track `01M57NPKDR9556ZB4WHT77JD1K` ("Main", October 2026)
+  - Product Management Intern: track `01M57NPKNPZFYRK90Z8DJFNCCA` ("Main", October 2026)
+- In each track, the upload is the file field `cv` ("Your CV (PDF)", `kind: "file"`, optional) in the `details` form node.
+- Remove the `cv` upload field **and** the text field `cv_other` ("Anything else on your CV we haven't asked about?"). Both go, no keeping it as optional. Leave everything else as it is.
+- Both tracks already have an unpublished draft (version 3). Call `get_workflow` and edit the **draft** config, then `propose_workflow_change` with the full config. Do not start from the published version or the other draft changes will be lost.
+- `propose_workflow_change` only saves a draft. An admin reviews the diff and publishes in the builder at `/team/builder/<workflowId>`.
+- Check nothing else points at the removed field (rubrics, rules, emails, review screens).
+
+### 6b. Fix the Business Development Intern task PDF upload
+
+- This role appears in the workspace as **Business Growth Intern (Sales)**, track `01M57NPKVW5W7HKGEM1J7N8M7P` **(verify it is the same role)**. Ignore the "(unused duplicate)" roles.
+- Read the task stage with `get_workflow`. Find the file deliverable and check it is set up correctly (required or optional, label, file types).
+- Then test the real candidate upload and find the actual cause. Upload flow: `apps/web/src/app/(candidate)/roles/[applicationId]/stages/[nodeId]/file-upload.tsx` asks for a signed URL, sends the bytes straight to storage, then confirms. Server code: `apps/web/src/server/storage/files.ts` and `index.ts`.
+- Things worth checking **(verify)**:
+  - `checkUpload` rejects a valid PDF when the browser or phone sends an empty MIME type, `application/octet-stream` or `application/x-pdf`
+  - the 25 MB limit (`MAX_UPLOAD_BYTES`)
+  - the bucket CORS for `PUT` from `https://workspace.isocodelabs.com`, including the `Content-Type` and `x-goog-content-length-range` headers
+  - the signed URL expires after 10 minutes
+  - `confirmUpload` fails when the stored size differs from the declared size
+  - files stuck at `scanStatus = pending` (ClamAV never reports back), because `ownCleanFiles` only accepts `clean` files, so the submission fails
+  - the candidate sees a vague "Upload failed" message that hides the real cause
+- Fix what is actually broken. Make the error message say why. Add a test next to the existing ones (`apps/web/src/server/*.test.ts`).
+- If the mails to `hr@isocodelabs.com` show other upload complaints for this task, use them as extra evidence, but they are not the scope.
+
+**Done when:** the CV upload and the `cv_other` text field are gone from the SDE and PM drafts, and a Business Development Intern candidate can upload a PDF from a phone and a desktop and submit the task, and a failed upload shows a clear reason.
