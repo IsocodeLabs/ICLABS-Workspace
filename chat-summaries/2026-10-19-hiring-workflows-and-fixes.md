@@ -7,11 +7,11 @@
 
 All three roles now run: **form(s) → task → reviewer's yes → interview → Final decision → Completed (selected) / Not progressing (admin confirms)**. No score cut-offs.
 
-| Role | Steps | Status |
-|---|---|---|
-| Business Growth Intern | Your details (no resume) → In your own words (9 questions, word limits, no pasting) → "Most performing and deliverable industry research" (₹5–10 lakh, task-first brief, POCs are an optional bonus) → Interview → Final decision | v3 published; **v4 draft (new brief) not published** |
-| Product Management Intern | CV-style profile form → PRD + design mockup (problem statements placeholder) → Interview → Final decision | Draft, not published; needs interviewers + reviewers + problem statements |
-| Software Engineering Intern | CV-style profile form → TDD + build (product briefs placeholder) → Interview → Final decision | Draft, not published; needs interviewers + reviewers + briefs |
+| Role                        | Steps                                                                                                                                                                                                                             | Status                                                                    |
+| --------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------- |
+| Business Growth Intern      | Your details (no resume) → In your own words (9 questions, word limits, no pasting) → "Most performing and deliverable industry research" (₹5–10 lakh, task-first brief, POCs are an optional bonus) → Interview → Final decision | v3 published; **v4 draft (new brief) not published**                      |
+| Product Management Intern   | CV-style profile form → PRD + design mockup (problem statements placeholder) → Interview → Final decision                                                                                                                         | Draft, not published; needs interviewers + reviewers + problem statements |
+| Software Engineering Intern | CV-style profile form → TDD + build (product briefs placeholder) → Interview → Final decision                                                                                                                                     | Draft, not published; needs interviewers + reviewers + briefs             |
 
 - Candidates stay on the version they were invited under; test with a fresh invite after publishing.
 - Duplicate SDE role (5 seats, /sde) can be deleted from Roles now.
