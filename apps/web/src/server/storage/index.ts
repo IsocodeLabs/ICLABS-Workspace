@@ -38,13 +38,49 @@ export const ALLOWED_TYPES: Record<string, string[]> = {
 
 export const INLINE_TYPES = new Set(["application/pdf", "image/png", "image/jpeg", "image/webp"]);
 
+/** Types phones and older browsers report that mean the same thing as an allowed type. */
+const MIME_ALIASES: Record<string, string> = {
+  "application/x-pdf": "application/pdf",
+  "application/acrobat": "application/pdf",
+  "applications/vnd.pdf": "application/pdf",
+  "text/pdf": "application/pdf",
+  "text/x-pdf": "application/pdf",
+  "image/jpg": "image/jpeg",
+  "image/pjpeg": "image/jpeg",
+  "application/x-zip": "application/zip",
+};
+
+/** Types that say nothing about the file: trust the extension instead. */
+const GENERIC_TYPES = new Set(["", "application/octet-stream", "binary/octet-stream"]);
+
+const extOf = (filename: string) =>
+  filename.includes(".") ? (filename.split(".").pop()?.toLowerCase() ?? "") : "";
+
+/**
+ * The type we store and sign the upload with. Android pickers (Drive, WhatsApp, some file
+ * managers) often send an empty type or application/octet-stream for a normal PDF, and some
+ * send application/x-pdf. Map those to the real type by extension so valid files go through.
+ */
+export function normalizeMime(filename: string, mime: string): string {
+  const declared = mime.split(";")[0]!.trim().toLowerCase();
+  const aliased = MIME_ALIASES[declared] ?? declared;
+  if (!GENERIC_TYPES.has(aliased)) return aliased;
+  const ext = extOf(filename);
+  const match = Object.entries(ALLOWED_TYPES).find(([, exts]) => exts.includes(ext));
+  return match ? match[0] : aliased;
+}
+
 export function checkUpload(filename: string, mime: string, size: number): string | null {
-  const ext = filename.split(".").pop()?.toLowerCase() ?? "";
-  if (!ALLOWED_TYPES[mime]?.includes(ext))
+  const ext = extOf(filename);
+  if (!ext) return "This file has no extension. Rename it to end in .pdf (or its type) and retry.";
+  if (!ALLOWED_TYPES[mime])
     return "This file type isn't allowed. Use PDF, images, ZIP, Office files or text.";
-  if (size <= 0 || size > MAX_UPLOAD_BYTES)
-    return "Files can be up to 25 MB. Share bigger work as a link.";
-  if (filename.length > 200) return "File name is too long.";
+  if (!ALLOWED_TYPES[mime]!.includes(ext))
+    return `This file's name ends in .${ext} but it looks like a different type. Save or export it again as the right type and retry.`;
+  if (size <= 0) return "This file is empty. Check it opens on your device, then upload it again.";
+  if (size > MAX_UPLOAD_BYTES)
+    return "Files can be up to 25 MB. Compress it, or share bigger work as a link.";
+  if (filename.length > 200) return "File name is too long. Rename it and upload again.";
   return null;
 }
 

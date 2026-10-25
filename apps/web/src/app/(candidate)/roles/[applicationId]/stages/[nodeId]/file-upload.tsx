@@ -4,7 +4,36 @@ import { useTranslations } from "next-intl";
 import { useState } from "react";
 import { Paperclip } from "lucide-react";
 import { SupportHint } from "@/components/ui";
-import { confirmUploadAction, requestUploadAction } from "@/app/(candidate)/stage-actions";
+
+type UploadStep =
+  | { ok: true; fileId: string; url: string; headers: Record<string, string> }
+  | { ok: true; scanStatus: string }
+  | { ok: false; error: string };
+
+const MAX_BYTES = 25 * 1024 * 1024;
+
+/** Calls /api/uploads (a fixed URL, so pages opened before a deploy keep working). */
+async function uploadStep(body: Record<string, unknown>): Promise<UploadStep> {
+  const res = await fetch("/api/uploads", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  }).catch(() => null);
+  if (!res) return { ok: false, error: "No connection. Check your internet and try again." };
+  const json = (await res.json().catch(() => null)) as UploadStep | null;
+  if (json && "ok" in json) return json;
+  return { ok: false, error: `The workspace didn't respond (error ${res.status}). Try again.` };
+}
+
+/** Why storage refused the bytes, in words the candidate can act on. */
+function putFailure(status: number | null): string {
+  if (status === null)
+    return "The upload was cut off. Check your connection (or switch between Wi-Fi and mobile data) and try again.";
+  if (status === 400 || status === 403)
+    return "The upload link expired or was refused. Choose the file again.";
+  if (status === 413) return "Files can be up to 25 MB. Compress it, or share it as a link.";
+  return `Storage didn't accept the file (error ${status}). Try again in a minute.`;
+}
 
 /** Uploads straight to storage with a short-lived URL, then confirms with the server. */
 export function FileUpload({
@@ -24,17 +53,21 @@ export function FileUpload({
     setBusy(true);
     setError(null);
     try {
-      const req = await requestUploadAction({
+      if (file.size > MAX_BYTES)
+        throw new Error("Files can be up to 25 MB. Compress it, or share it as a link.");
+      const req = await uploadStep({
+        step: "request",
         filename: file.name,
-        mime: file.type || "application/octet-stream",
+        mime: file.type,
         size: file.size,
       });
       if (!req.ok) throw new Error(req.error);
+      if (!("fileId" in req)) throw new Error("Choose the file again.");
       const put = await fetch(req.url, { method: "PUT", headers: req.headers, body: file }).catch(
         () => null,
       );
-      if (!put?.ok) throw new Error("Upload failed. Check your connection and try again.");
-      const done = await confirmUploadAction(req.fileId);
+      if (!put?.ok) throw new Error(putFailure(put ? put.status : null));
+      const done = await uploadStep({ step: "confirm", fileId: req.fileId });
       if (!done.ok) throw new Error(done.error);
       onChange({ id: req.fileId, name: file.name });
     } catch (e) {

@@ -1,6 +1,6 @@
 import { and, eq, files, type Db } from "@iclabs/db";
 import type { Actor } from "@iclabs/core";
-import { checkUpload, INLINE_TYPES, type FileStore } from "./index";
+import { checkUpload, INLINE_TYPES, normalizeMime, type FileStore } from "./index";
 
 type CandidateActor = Extract<Actor, { kind: "candidate" }>;
 
@@ -14,7 +14,8 @@ export async function requestUpload(
   actor: CandidateActor,
   input: { filename: string; mime: string; size: number },
 ) {
-  const problem = checkUpload(input.filename, input.mime, input.size);
+  const mime = normalizeMime(input.filename, input.mime);
+  const problem = checkUpload(input.filename, mime, input.size);
   if (problem) return { ok: false as const, error: problem };
   const [row] = await db
     .insert(files)
@@ -22,13 +23,13 @@ export async function requestUpload(
       ownerCandidateId: actor.candidateId,
       objectKey: "",
       filename: input.filename,
-      mime: input.mime,
+      mime,
       size: input.size,
     })
     .returning();
   const objectKey = `uploads/${actor.candidateId}/${row!.id}`;
   await db.update(files).set({ objectKey }).where(eq(files.id, row!.id));
-  const upload = await store.uploadUrl(objectKey, input.mime, input.size);
+  const upload = await store.uploadUrl(objectKey, mime, input.size);
   return { ok: true as const, fileId: row!.id, ...upload };
 }
 
@@ -47,16 +48,43 @@ export async function confirmUpload(
     .select()
     .from(files)
     .where(and(eq(files.id, fileId), eq(files.ownerCandidateId, actor.candidateId)));
-  if (!f) return { ok: false as const, error: "File not found" };
+  if (!f)
+    return { ok: false as const, error: "We lost track of this upload. Choose the file again." };
   const actual = await store.size(f.objectKey);
-  if (actual === null) return { ok: false as const, error: "Upload didn't finish. Try again." };
+  if (actual === null)
+    return {
+      ok: false as const,
+      error: "The file didn't reach us. Check your connection and choose the file again.",
+    };
   if (actual !== f.size)
-    return { ok: false as const, error: "The file changed during upload. Try again." };
+    return {
+      ok: false as const,
+      error: `Only part of the file arrived (${actual} of ${f.size} bytes). Check your connection and choose the file again.`,
+    };
   await db
     .update(files)
     .set({ uploadedAt: new Date(), scanStatus: scanMode === "none" ? "clean" : "pending" })
     .where(eq(files.id, fileId));
   return { ok: true as const, scanStatus: scanMode === "none" ? "clean" : "pending" };
+}
+
+/** Why an attached file can't be used, as a field error code (see stage.errors in messages). */
+export type FileProblem = "file" | "file_pending" | "file_blocked";
+
+/** Files a candidate may attach, plus the reason for each one that can't be. */
+export async function checkOwnFiles(db: Db, actor: CandidateActor, ids: string[]) {
+  const ok = new Set<string>();
+  const problems = new Map<string, FileProblem>();
+  if (ids.length === 0) return { ok, problems };
+  const rows = await db.select().from(files).where(eq(files.ownerCandidateId, actor.candidateId));
+  for (const id of ids) {
+    const r = rows.find((row) => row.id === id);
+    if (r?.uploadedAt && r.scanStatus === "clean") ok.add(id);
+    else if (r?.uploadedAt && r.scanStatus === "pending") problems.set(id, "file_pending");
+    else if (r?.uploadedAt) problems.set(id, "file_blocked");
+    else problems.set(id, "file");
+  }
+  return { ok, problems };
 }
 
 /** Files a candidate may attach: their own, uploaded, and clean. */

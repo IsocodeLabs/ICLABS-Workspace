@@ -4,7 +4,6 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { eq, assessmentSessions, stageProgress, and } from "@iclabs/db";
 import { db } from "@/server/db";
-import { env } from "@/server/env";
 import { requireCandidate } from "@/server/auth/session";
 import {
   getAssessmentQuestions,
@@ -16,8 +15,7 @@ import {
   submitForm,
   submitTask,
 } from "@/server/stages/candidate";
-import { fileStore, progressionDeps } from "@/server/stages/deps";
-import { confirmUpload, requestUpload } from "@/server/storage/files";
+import { progressionDeps } from "@/server/stages/deps";
 
 const ids = z.object({
   applicationId: z.string().min(1).max(40),
@@ -131,36 +129,4 @@ export async function integrityAction(input: {
   const { actor } = await requireCandidate();
   const { applicationId, nodeId } = ids.parse(input);
   await recordIntegrity(db(), actor, applicationId, nodeId, input.events.slice(0, 200));
-}
-
-// Storage errors are logged, not thrown: a thrown action reaches the candidate as an opaque React error.
-const UPLOAD_UNAVAILABLE =
-  "We couldn't upload your file right now. Try again in a few minutes, or share it as a link if this keeps happening.";
-
-export async function requestUploadAction(input: { filename: string; mime: string; size: number }) {
-  const { actor } = await requireCandidate();
-  const parsed = z
-    .object({
-      filename: z.string().min(1).max(200),
-      mime: z.string().max(120),
-      size: z.number().int(),
-    })
-    .parse(input);
-  try {
-    return await requestUpload(db(), fileStore(), actor, parsed);
-  } catch (e) {
-    console.error("requestUpload failed", e);
-    return { ok: false as const, error: UPLOAD_UNAVAILABLE };
-  }
-}
-
-export async function confirmUploadAction(fileId: string) {
-  const { actor } = await requireCandidate();
-  const id = z.string().max(40).parse(fileId);
-  try {
-    return await confirmUpload(db(), fileStore(), actor, id, env().SCAN_MODE);
-  } catch (e) {
-    console.error("confirmUpload failed", e);
-    return { ok: false as const, error: UPLOAD_UNAVAILABLE };
-  }
 }

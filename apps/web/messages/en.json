@@ -192,7 +192,9 @@
       "email": "Enter a valid email.",
       "number": "Enter a number.",
       "too_long": "That's too long.",
-      "file": "Upload the file again.",
+      "file": "This upload didn't finish. Choose the file again.",
+      "file_pending": "Your file is still being checked for viruses. Wait a minute, then submit again.",
+      "file_blocked": "This file failed our safety check. Upload a different copy, or share it as a link.",
       "problem": "Pick one problem statement.",
       "too_many_words": "Keep it to {max} words."
     },

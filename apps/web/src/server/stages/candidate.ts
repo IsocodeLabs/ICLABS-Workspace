@@ -26,7 +26,7 @@ import {
   type NodeState,
   type WorkflowNode,
 } from "@iclabs/core";
-import { ownCleanFiles } from "../storage/files";
+import { checkOwnFiles } from "../storage/files";
 import { completeSubmission, loadPinned, type ProgressionDeps } from "./progression";
 
 type CandidateActor = Extract<Actor, { kind: "candidate" }>;
@@ -224,10 +224,10 @@ export async function submitForm(
   const fieldErrors: Record<string, string> = validateFormAnswers(fields, answers);
   const fileFieldIds = fields.filter((f) => f.kind === "file").map((f) => f.id);
   const claimed = fileFieldIds.flatMap((id) => (answers[id] ? [String(answers[id])] : []));
-  const okFiles = new Set((await ownCleanFiles(db, actor, claimed)).map((f) => f.id));
+  const { ok: okFiles, problems } = await checkOwnFiles(db, actor, claimed);
   for (const id of fileFieldIds) {
     const v = answers[id];
-    if (v && !okFiles.has(String(v))) fieldErrors[id] = "file";
+    if (v && !okFiles.has(String(v))) fieldErrors[id] = problems.get(String(v)) ?? "file";
     if (!v && fields.find((f) => f.id === id)?.required) fieldErrors[id] = "required";
   }
   if (Object.keys(fieldErrors).length)
@@ -297,10 +297,10 @@ export async function submitTask(
       fileIds.push(v);
     } else if (v.length > 20_000) fieldErrors[d.id] = "too_long";
   }
-  const okFiles = new Set((await ownCleanFiles(db, actor, fileIds)).map((f) => f.id));
+  const { ok: okFiles, problems } = await checkOwnFiles(db, actor, fileIds);
   for (const d of s.node.config.deliverables) {
-    if (d.kind === "file" && deliverables[d.id] && !okFiles.has(deliverables[d.id]!))
-      fieldErrors[d.id] = "file";
+    const v = deliverables[d.id]?.trim();
+    if (d.kind === "file" && v && !okFiles.has(v)) fieldErrors[d.id] = problems.get(v) ?? "file";
   }
   if (Object.keys(fieldErrors).length)
     return { ok: false, error: "Check the highlighted deliverables.", fieldErrors };
