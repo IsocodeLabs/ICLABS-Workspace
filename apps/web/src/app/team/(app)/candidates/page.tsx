@@ -47,9 +47,14 @@ export default async function CandidatesPage({
         subtitle="Invite shortlisted candidates one at a time or from a careers-site CSV."
         actions={
           actor.role === "admin" ? (
-            <Link href="/team/candidates/message" className="text-sm font-semibold underline">
-              Message candidates
-            </Link>
+            <div className="flex gap-4">
+              <Link href="/team/candidates/deadline" className="text-sm font-semibold underline">
+                Same deadline for everyone
+              </Link>
+              <Link href="/team/candidates/message" className="text-sm font-semibold underline">
+                Message candidates
+              </Link>
+            </div>
           ) : undefined
         }
       />
