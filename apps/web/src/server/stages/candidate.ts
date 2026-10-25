@@ -6,10 +6,12 @@ import {
   isNull,
   lt,
   assessmentSessions,
+  emailMessages,
   integrityEvents,
   questions,
   stageProgress,
   submissions,
+  workflows,
   type Db,
 } from "@iclabs/db";
 import {
@@ -26,8 +28,9 @@ import {
   type NodeState,
   type WorkflowNode,
 } from "@iclabs/core";
+import { TEMPLATE_KEYS, type TemplateKey } from "../email/templates";
 import { checkOwnFiles } from "../storage/files";
-import { completeSubmission, loadPinned, type ProgressionDeps } from "./progression";
+import { completeSubmission, loadPinned, versionConfig, type ProgressionDeps } from "./progression";
 
 type CandidateActor = Extract<Actor, { kind: "candidate" }>;
 
@@ -350,17 +353,22 @@ async function afterSubmit(
     hasWrittenAnswers?: boolean;
   },
 ) {
-  // Only a task (the take-home) gets a receipt email; other steps are confirmed on the page.
-  if (s.node.type === "task") {
+  // A step set to send its own email after submitting (builder → Emails) sends that, once per
+  // application. Otherwise only a task (the take-home) gets a receipt; other steps are
+  // confirmed on the page.
+  const custom = await submittedEmail(db, s);
+  const templateKey = custom ?? (s.node.type === "task" ? "submission_received" : null);
+  if (templateKey && !(custom && (await alreadyEmailed(db, s.pinned.app.id, custom)))) {
     await deps.queueEmail({
       to: s.pinned.email,
-      templateKey: "submission_received",
+      templateKey,
       userId: s.pinned.userId,
       applicationId: s.pinned.app.id,
       vars: {
         first_name: s.pinned.candidateName.split(" ")[0]!,
         role: s.pinned.roleTitle,
         stage: s.node.title,
+        stage_url: deps.appUrl("/dashboard"),
       },
     });
   }
@@ -370,6 +378,43 @@ async function afterSubmit(
     hasWrittenAnswers: ctx.hasWrittenAnswers,
     flags: { late: ctx.late, integrityHigh: false },
   });
+}
+
+/**
+ * The email a step sends after a submit (node.emails.submitted). Read from the track's live
+ * published process, so switching it on or off also reaches candidates pinned to an earlier
+ * version; a step the live process no longer has falls back to the candidate's own version.
+ */
+async function submittedEmail(
+  db: Db,
+  s: NonNullable<Awaited<ReturnType<typeof loadStage>>>,
+): Promise<TemplateKey | null> {
+  let node: WorkflowNode = s.node;
+  const [wf] = await db
+    .select({ versionId: workflows.publishedVersionId })
+    .from(workflows)
+    .where(eq(workflows.id, s.pinned.app.workflowId));
+  if (wf?.versionId && wf.versionId !== s.pinned.app.workflowVersionId) {
+    const live = (await versionConfig(db, wf.versionId)).nodes.find((n) => n.id === s.node.id);
+    if (live) node = live;
+  }
+  const key = node.emails?.submitted;
+  return key && (TEMPLATE_KEYS as readonly string[]).includes(key) ? (key as TemplateKey) : null;
+}
+
+/** Whether this application already got (or has queued) this email, e.g. from a mass send. */
+async function alreadyEmailed(db: Db, applicationId: string, templateKey: TemplateKey) {
+  const [hit] = await db
+    .select({ id: emailMessages.id })
+    .from(emailMessages)
+    .where(
+      and(
+        eq(emailMessages.applicationId, applicationId),
+        eq(emailMessages.templateKey, templateKey),
+      ),
+    )
+    .limit(1);
+  return Boolean(hit);
 }
 
 const stringAnswers = (data: Record<string, unknown>) =>

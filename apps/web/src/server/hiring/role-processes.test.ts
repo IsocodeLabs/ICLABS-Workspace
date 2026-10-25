@@ -43,7 +43,7 @@ describe.each(Object.entries(ROLE_PROCESSES))("%s process", (_slug, p) => {
     expect(text.map((f) => f.label).join(" ")).toMatch(/AI/);
   });
 
-  it("collects the CV in Your details, projects first", () => {
+  it("collects the CV in Your details as typed answers, projects first, with no upload", () => {
     const details = config.nodes.find((n) => n.id === "details")!;
     if (details.type !== "form") throw new Error("details should be a form");
     const ids = details.config.fields.map((f) => f.id);
@@ -54,9 +54,11 @@ describe.each(Object.entries(ROLE_PROCESSES))("%s process", (_slug, p) => {
         "project2_name",
         "experience",
         "skills",
-        "cv",
       ]),
     );
+    expect(ids).not.toContain("cv");
+    expect(ids).not.toContain("cv_other");
+    expect(details.config.fields.some((f) => f.kind === "file")).toBe(false);
     expect(new Set(ids).size).toBe(ids.length);
   });
 });

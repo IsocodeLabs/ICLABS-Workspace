@@ -4,6 +4,7 @@ import {
   and,
   applications,
   assessmentSessions,
+  emailMessages,
   files,
   notifications,
   questions,
@@ -457,5 +458,84 @@ Details ${n}`,
       state: "unlocked",
       canSubmit: true,
     });
+  });
+});
+
+describe("email after a step is submitted", () => {
+  // Details → How you think (sends the email set on it) → Needs decision, like SDE and PM.
+  function twoSteps(email?: string): WorkflowConfig {
+    const details = createNode("form", { id: "details", title: "Your details" });
+    details.config.fields = [{ id: "name", label: "Name", kind: "short_text", required: true }];
+    const thinking = createNode("custom", { id: "how_you_think", title: "How you think" });
+    thinking.config = {
+      fields: [{ id: "why", label: "Why?", kind: "long_text", required: true }],
+      reviewed: false,
+    };
+    if (email) thinking.emails = { submitted: email };
+    return {
+      ...emptyWorkflow(),
+      nodes: [details, thinking],
+      edges: [
+        { id: "1", from: "details", to: "how_you_think", priority: 0, when: { always: true } },
+        {
+          id: "2",
+          from: "how_you_think",
+          to: "NEEDS_DECISION",
+          priority: 0,
+          when: { always: true },
+        },
+      ],
+    };
+  }
+  const sentTemplates = () =>
+    (queueEmail.mock.calls as unknown as [{ templateKey: string }][]).map(
+      ([input]) => input.templateKey,
+    );
+
+  it("sends the step's email when Step 2 is submitted, and nothing after Step 1", async () => {
+    const { app, actor } = await newApplication(twoSteps("task_prepare"));
+    await submitForm(db, deps, actor, app.id, "details", { name: "Asha" });
+    expect(sentTemplates()).not.toContain("task_prepare");
+    expect(await submitForm(db, deps, actor, app.id, "how_you_think", { why: "Because" })).toEqual({
+      ok: true,
+      late: false,
+    });
+    expect(queueEmail).toHaveBeenCalledWith(
+      expect.objectContaining({
+        templateKey: "task_prepare",
+        applicationId: app.id,
+        vars: expect.objectContaining({ stage: "How you think", stage_url: "https://w/dashboard" }),
+      }),
+    );
+  });
+
+  it("sends it once only: skipped if this candidate already got it", async () => {
+    const { app, actor } = await newApplication(twoSteps("task_prepare"));
+    await db.insert(emailMessages).values({
+      applicationId: app.id,
+      toEmail: "asha@x.com",
+      templateKey: "task_prepare",
+    });
+    await submitForm(db, deps, actor, app.id, "details", { name: "Asha" });
+    await submitForm(db, deps, actor, app.id, "how_you_think", { why: "Because" });
+    expect(sentTemplates()).not.toContain("task_prepare");
+  });
+
+  it("follows the live process, so candidates invited before it was switched on get it too", async () => {
+    const { app, actor } = await newApplication(twoSteps());
+    const data = await getBuilderData(db, admin, app.workflowId);
+    await saveDraft(db, admin, {
+      workflowId: app.workflowId,
+      versionId: data.draft!.id,
+      config: twoSteps("task_prepare"),
+      etag: data.draft!.etag,
+    });
+    await publishDraft(db, admin, { workflowId: app.workflowId, versionId: data.draft!.id });
+    const [pinned] = await db.select().from(applications).where(eq(applications.id, app.id));
+    expect(pinned!.workflowVersionId).toBe(app.workflowVersionId);
+
+    await submitForm(db, deps, actor, app.id, "details", { name: "Asha" });
+    await submitForm(db, deps, actor, app.id, "how_you_think", { why: "Because" });
+    expect(sentTemplates()).toContain("task_prepare");
   });
 });

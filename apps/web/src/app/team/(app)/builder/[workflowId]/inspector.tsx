@@ -1059,7 +1059,14 @@ const EMAIL_EVENTS = [
   ["submitted", "After they submit"],
 ] as const;
 
-function Emails({ node }: Props) {
+/** Templates a step can send right after a submit (no secrets, no interview details). */
+const AFTER_SUBMIT_TEMPLATES = [
+  ["submission_received", "Submission receipt"],
+  ["task_prepare", "Get ready for the task round"],
+] as const;
+
+function Emails({ node, readOnly, update }: Props) {
+  const submitted = node.emails?.submitted ?? "";
   return (
     <>
       <p className="mb-3 text-sm text-muted">
@@ -1069,17 +1076,51 @@ function Emails({ node }: Props) {
         <p className="text-sm text-muted">Team-only stages don't email candidates.</p>
       ) : (
         <ul className="space-y-2">
-          {EMAIL_EVENTS.map(([key, label]) => (
-            <li
-              key={key}
-              className="flex items-center justify-between rounded-xl border border-border px-3 py-2 text-sm"
-            >
-              <span>{label}</span>
-              <span className="text-muted">
-                {node.emails?.[key] ? "Custom" : "Default template"}
-              </span>
-            </li>
-          ))}
+          {EMAIL_EVENTS.map(([key, label]) =>
+            key === "submitted" ? (
+              <li key={key} className="rounded-xl border border-border px-3 py-2 text-sm">
+                <Label htmlFor="email-submitted">{label}</Label>
+                <Select
+                  id="email-submitted"
+                  value={submitted}
+                  disabled={readOnly}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    update((n) => {
+                      const { submitted: _old, ...rest } = n.emails ?? {};
+                      const emails = value ? { ...rest, submitted: value } : rest;
+                      return { ...n, emails: Object.keys(emails).length ? emails : undefined };
+                    });
+                  }}
+                >
+                  <option value="">
+                    {node.type === "task" ? "Default: submission receipt" : "Default: no email"}
+                  </option>
+                  {AFTER_SUBMIT_TEMPLATES.map(([t, name]) => (
+                    <option key={t} value={t}>
+                      {name}
+                    </option>
+                  ))}
+                </Select>
+                {submitted && (
+                  <p className="mt-1 text-xs text-muted">
+                    Sent once per candidate as soon as they submit, until you change it here and
+                    publish. Applies to everyone on this track, including those invited earlier.
+                  </p>
+                )}
+              </li>
+            ) : (
+              <li
+                key={key}
+                className="flex items-center justify-between rounded-xl border border-border px-3 py-2 text-sm"
+              >
+                <span>{label}</span>
+                <span className="text-muted">
+                  {node.emails?.[key] ? "Custom" : "Default template"}
+                </span>
+              </li>
+            ),
+          )}
         </ul>
       )}
     </>

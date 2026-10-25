@@ -175,8 +175,12 @@ const nodeBase = {
   graceHours: z.number().min(0).max(72).optional(),
   reviewers: reviewerConfigSchema.optional(),
   rubric: rubricSchema.optional(),
+  // Partial: in Zod 4 a record keyed by an enum requires every key.
   emails: z
-    .record(z.enum(["unlock", "reminder", "submitted", "advance", "reject"]), z.string().max(64))
+    .partialRecord(
+      z.enum(["unlock", "reminder", "submitted", "advance", "reject"]),
+      z.string().max(64),
+    )
     .optional(),
 };
 

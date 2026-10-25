@@ -149,7 +149,8 @@ In case of any doubt or enquiry, contact hr@isocodelabs.com.
 The Isocode Labs hiring team`,
   },
   task_prepare: {
-    description: "Sent by an admin: be ready for the task round, details to follow",
+    description:
+      "Be ready for the task round, details to follow. Sent by an admin, or automatically after a step set to send it",
     subject: "{{role}}: get ready for the task round",
     body: `Hi {{first_name}},
 

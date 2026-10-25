@@ -140,14 +140,6 @@ function detailsFields(role: Role): FormField[] {
     role === "sde"
       ? link("portfolio", "Portfolio, blog or personal site")
       : link("github", "GitHub profile, if you have one"),
-    {
-      id: "cv",
-      label: "Your CV (PDF)",
-      kind: "file",
-      required: false,
-      help: "Optional, but it helps us.",
-    },
-    long("cv_other", "Anything else on your CV we haven't asked about?", 150, false),
   ];
 }
 
@@ -457,6 +449,8 @@ function roleProcess(role: Role, interviewerPool: string[]): WorkflowConfig {
   thinking.config = { fields: thinkingFields(role), reviewed: true };
   thinking.rubric = thinkingRubric(role);
   thinking.reviewers = { pool: [], perSubmission: 1, method: "round_robin", blind: false };
+  // Everyone who finishes this step is told to get ready for the task round.
+  thinking.emails = { submitted: "task_prepare" };
 
   // Shortlisted candidates only. Write the brief in the Process Builder before moving anyone here.
   const task = createNode("task", {
