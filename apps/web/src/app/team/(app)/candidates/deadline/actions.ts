@@ -5,7 +5,11 @@ import { z } from "zod";
 import { formatIst } from "@iclabs/core";
 import { db } from "@/server/db";
 import { requireTeam } from "@/server/auth/session";
-import { setStepDeadline, stepDeadlineRows } from "@/server/candidates/deadlines";
+import {
+  restartTrackFromLoginEmails,
+  setStepDeadline,
+  stepDeadlineRows,
+} from "@/server/candidates/deadlines";
 
 /** `datetime-local` values, read as India time. */
 const istLocal = z
@@ -69,4 +73,42 @@ export async function setStepDeadlineAction(
   const res = await setStepDeadline(db(), actor, parsed.data);
   revalidatePath("/team/candidates");
   return res;
+}
+
+export type LoginRestartPreview = {
+  rows: {
+    name: string;
+    email: string;
+    nodeId: string;
+    loginEmail: string;
+    from: string;
+    to: string;
+    reopened: boolean;
+  }[];
+};
+
+/** Who would get more time because their login email reached them after the step opened. */
+export async function loginRestartAction(
+  raw: unknown,
+  apply: boolean,
+): Promise<LoginRestartPreview | { error: string }> {
+  const { actor } = await requireTeam(["admin"]);
+  const parsed = z.object({ workflowId: z.string().min(1).max(40) }).safeParse(raw);
+  if (!parsed.success) return { error: "Pick a track." };
+  const changes = await restartTrackFromLoginEmails(db(), actor, {
+    workflowId: parsed.data.workflowId,
+    dryRun: !apply,
+  });
+  if (apply) revalidatePath("/team/candidates");
+  return {
+    rows: changes.map((c) => ({
+      name: c.name,
+      email: c.email,
+      nodeId: c.nodeId,
+      loginEmail: formatIst(c.loginEmailAt),
+      from: show(c.oldDueAt),
+      to: formatIst(c.dueAt),
+      reopened: c.reopened,
+    })),
+  };
 }

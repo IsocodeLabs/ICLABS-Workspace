@@ -387,6 +387,94 @@ export async function extendDeadline(db: Db, actorUserId: string, progressId: st
   });
 }
 
+export type DeadlineRestart = {
+  progressId: string;
+  applicationId: string;
+  nodeId: string;
+  oldDueAt: Date | null;
+  dueAt: Date;
+  graceUntil: Date | null;
+  reopened: boolean;
+};
+
+/**
+ * A candidate can't start a step before their login email reaches them, but a step's relative
+ * deadline counts from when it opened (the invite). When the login email goes out later
+ * (scheduled invites, resent logins), steps they haven't started are re-timed from the email.
+ * Never shortens a deadline, leaves admin extensions and absolute deadlines alone, and reopens a
+ * step marked missed if the new deadline is still ahead.
+ */
+export async function restartDeadlinesFromLogin(
+  db: Db,
+  userId: string,
+  loginEmailAt: Date,
+  opts: { workflowId?: string; dryRun?: boolean; now?: Date } = {},
+): Promise<DeadlineRestart[]> {
+  const now = opts.now ?? new Date();
+  const rows = await db
+    .select({ progress: stageProgress, app: applications })
+    .from(stageProgress)
+    .innerJoin(applications, eq(applications.id, stageProgress.applicationId))
+    .innerJoin(candidates, eq(candidates.id, applications.candidateId))
+    .where(
+      and(
+        eq(candidates.userId, userId),
+        inArray(applications.status, ["active", "needs_decision"]),
+        inArray(stageProgress.state, ["unlocked", "missed"]),
+        isNull(stageProgress.submittedAt),
+        isNull(stageProgress.extendedUntil),
+        lt(stageProgress.unlockedAt, loginEmailAt),
+        opts.workflowId ? eq(applications.workflowId, opts.workflowId) : undefined,
+      ),
+    );
+  const changes: DeadlineRestart[] = [];
+  for (const { progress: p, app } of rows) {
+    if (!app.workflowVersionId) continue;
+    const node = (await versionConfig(db, app.workflowVersionId)).nodes.find(
+      (n) => n.id === p.nodeId,
+    );
+    if (node?.deadline?.mode !== "relative") continue;
+    const { dueAt, graceUntil } = computeDeadlines(node, loginEmailAt);
+    if (!dueAt || (p.dueAt && dueAt <= p.dueAt)) continue;
+    const reopened = p.state === "missed" && (graceUntil ?? dueAt) > now;
+    changes.push({
+      progressId: p.id,
+      applicationId: app.id,
+      nodeId: p.nodeId,
+      oldDueAt: p.dueAt,
+      dueAt,
+      graceUntil,
+      reopened,
+    });
+    if (opts.dryRun) continue;
+    await db
+      .update(stageProgress)
+      .set({
+        dueAt,
+        graceUntil,
+        reminderSentAt: null,
+        ...(reopened ? { state: "unlocked" as const } : {}),
+      })
+      .where(eq(stageProgress.id, p.id));
+    if (reopened && app.status === "needs_decision" && app.currentNodeId === p.nodeId)
+      await db.update(applications).set({ status: "active" }).where(eq(applications.id, app.id));
+    await audit(db, {
+      actorUserId: null,
+      via: "system",
+      action: "deadline_restarted",
+      entity: "stage_progress",
+      entityId: p.id,
+      after: {
+        from: p.dueAt?.toISOString() ?? null,
+        to: dueAt.toISOString(),
+        loginEmailAt: loginEmailAt.toISOString(),
+        reopened,
+      },
+    });
+  }
+  return changes;
+}
+
 /** Admins, plus hiring managers who manage this role or track. Nobody else sees the name. */
 export async function notifyAdmins(
   db: Db,

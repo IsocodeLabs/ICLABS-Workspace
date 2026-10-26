@@ -67,7 +67,13 @@ export async function processOutbox(
   db: Db,
   mailer: Mailer,
   config: OutboxConfig,
-  opts: { now?: Date; limit?: number; concurrency?: number } = {},
+  opts: {
+    now?: Date;
+    limit?: number;
+    concurrency?: number;
+    /** Runs after each successful send; errors are logged, never fail the email. */
+    onSent?: (email: { templateKey: string; userId: string | null; sentAt: Date }) => Promise<void>;
+  } = {},
 ): Promise<{ sent: number; failed: number; suppressed: number }> {
   const now = opts.now ?? new Date();
   const maxAttempts = config.maxAttempts ?? 5;
@@ -123,11 +129,12 @@ export async function processOutbox(
         attachments: __attachments ? JSON.parse(__attachments) : undefined,
         tags: { template: key, email_id: id },
       });
+      const sentAt = new Date();
       await db
         .update(emailMessages)
         .set({
           status: "sent",
-          sentAt: new Date(),
+          sentAt,
           subject: rendered.subject,
           providerMessageId: normalizeMessageId(messageId),
           secretPayload: null,
@@ -135,6 +142,10 @@ export async function processOutbox(
         })
         .where(eq(emailMessages.id, id));
       result.sent++;
+      if (opts.onSent)
+        await opts
+          .onSent({ templateKey: claimed.templateKey, userId: claimed.userId, sentAt })
+          .catch((e) => console.error("outbox onSent failed", id, e));
     } catch (e) {
       const attempts = claimed.attempts;
       const giveUp = attempts >= maxAttempts;

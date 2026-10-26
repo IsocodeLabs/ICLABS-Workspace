@@ -48,8 +48,11 @@ export default async function CandidatesPage({
         actions={
           actor.role === "admin" ? (
             <div className="flex gap-4">
+              <Link href="/team/candidates/logins" className="text-sm font-semibold underline">
+                Login check
+              </Link>
               <Link href="/team/candidates/deadline" className="text-sm font-semibold underline">
-                Same deadline for everyone
+                Deadlines
               </Link>
               <Link href="/team/candidates/message" className="text-sm font-semibold underline">
                 Message candidates

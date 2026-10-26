@@ -1,5 +1,14 @@
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
-import { and, eq, applications, stageProgress, workflows, type Db } from "@iclabs/db";
+import {
+  and,
+  eq,
+  applications,
+  emailMessages,
+  stageProgress,
+  users,
+  workflows,
+  type Db,
+} from "@iclabs/db";
 import { createTestDb } from "@iclabs/db/testing";
 import { createNode, emptyWorkflow, type WorkflowConfig } from "@iclabs/core";
 import { teamActor } from "../../test/fixtures";
@@ -20,7 +29,8 @@ import {
   sweepMissedDeadlines,
   type ProgressionDeps,
 } from "../stages/progression";
-import { setStepDeadline, stepDeadlineRows } from "./deadlines";
+import { restartTrackFromLoginEmails, setStepDeadline, stepDeadlineRows } from "./deadlines";
+import { loginCheck } from "./logins";
 
 let db: Db;
 let close: () => Promise<void>;
@@ -148,5 +158,87 @@ describe("same deadline for everyone at a step", () => {
     expect(
       await setStepDeadline(db, admin, { workflowId, nodeId: "task", dueAt: CLOSE, closesAt: DUE }),
     ).toMatchObject({ ok: false });
+  });
+});
+
+describe("deadlines start from the login email", () => {
+  const loginEmail = (userId: string, sentAt: Date | null, status = "sent") =>
+    db.insert(emailMessages).values({
+      userId,
+      toEmail: "x@x.com",
+      templateKey: "welcome",
+      status: status as "sent",
+      sentAt,
+    });
+  const row = async (progressId: string) =>
+    (await db.select().from(stageProgress).where(eq(stageProgress.id, progressId)))[0]!;
+
+  it("re-times an unstarted step from a later login email and reopens it if missed", async () => {
+    // Invited 18 Oct (due 21 Oct), but the login email only went out on 23 Oct.
+    const late = await invite(new Date("2026-10-18T06:00:00Z"));
+    clock = new Date("2026-10-23T08:00:00Z");
+    await sweepMissedDeadlines(db, deps);
+    expect((await row(late.progressId)).state).toBe("missed");
+    await loginEmail(late.actor.userId, new Date("2026-10-23T05:00:00Z"));
+
+    const now = new Date("2026-10-23T09:00:00Z");
+    const preview = await restartTrackFromLoginEmails(db, admin, { workflowId, dryRun: true }, now);
+    expect(preview).toHaveLength(1);
+    expect(preview[0]).toMatchObject({
+      reopened: true,
+      dueAt: new Date("2026-10-26T23:59:00+05:30"),
+    });
+    expect((await row(late.progressId)).state).toBe("missed");
+
+    await restartTrackFromLoginEmails(db, admin, { workflowId, dryRun: false }, now);
+    const after = await row(late.progressId);
+    expect(after.dueAt).toEqual(new Date("2026-10-26T23:59:00+05:30"));
+    expect(after.state).toBe("unlocked");
+    const [app] = await db.select().from(applications).where(eq(applications.id, late.appId));
+    expect(app!.status).toBe("active");
+
+    // Running it again changes nothing.
+    expect(
+      await restartTrackFromLoginEmails(db, admin, { workflowId, dryRun: true }, now),
+    ).toHaveLength(0);
+  });
+
+  it("never shortens a deadline and leaves admin extensions alone", async () => {
+    const early = await invite(new Date("2026-10-20T06:00:00Z"));
+    await loginEmail(early.actor.userId, new Date("2026-10-20T06:05:00Z"));
+    const extended = await invite(new Date("2026-10-18T06:00:00Z"));
+    await extendDeadline(db, admin.userId, extended.progressId, new Date("2026-10-22T18:00:00Z"));
+    await loginEmail(extended.actor.userId, new Date("2026-10-23T05:00:00Z"));
+    const before = [await row(early.progressId), await row(extended.progressId)];
+    await restartTrackFromLoginEmails(
+      db,
+      admin,
+      { workflowId, dryRun: false },
+      new Date("2026-10-23T09:00:00Z"),
+    );
+    expect((await row(early.progressId)).dueAt).toEqual(before[0]!.dueAt);
+    expect((await row(extended.progressId)).dueAt).toEqual(before[1]!.dueAt);
+  });
+
+  it("lists who can't sign in: expired, failed, never sent", async () => {
+    const expired = await invite(new Date("2026-10-18T06:00:00Z"));
+    await loginEmail(expired.actor.userId, new Date("2026-10-18T06:01:00Z"));
+    const failed = await invite(new Date("2026-10-18T06:00:00Z"));
+    await loginEmail(failed.actor.userId, null, "failed");
+    const neverSent = await invite(new Date("2026-10-18T06:00:00Z"));
+    const signedIn = await invite(new Date("2026-10-18T06:00:00Z"));
+    await db
+      .update(users)
+      .set({ mustChangePassword: false })
+      .where(eq(users.id, signedIn.actor.userId));
+
+    const res = await loginCheck(db, admin, workflowId, new Date("2030-01-01T00:00:00Z"));
+    const problemOf = (userId: string) =>
+      res.problems.find((p) => p.candidateId === (userId as string))?.problem;
+    expect(problemOf(expired.actor.candidateId)).toBe("expired");
+    expect(problemOf(failed.actor.candidateId)).toBe("failed");
+    expect(problemOf(neverSent.actor.candidateId)).toBe("never_sent");
+    expect(problemOf(signedIn.actor.candidateId)).toBeUndefined();
+    expect(res.signedIn).toBeGreaterThanOrEqual(1);
   });
 });

@@ -2,14 +2,18 @@ import {
   and,
   eq,
   inArray,
+  isNotNull,
+  sql,
   applications,
   candidates,
+  emailMessages,
   stageProgress,
   users,
   type Db,
 } from "@iclabs/db";
 import type { Actor } from "@iclabs/core";
 import { assertCan, audit } from "../audit";
+import { restartDeadlinesFromLogin } from "../stages/progression";
 
 const ADMIN_ONLY = { type: "team_settings" } as const;
 
@@ -125,4 +129,76 @@ export async function setStepDeadline(
     },
   });
   return { ok: true as const, updated: rows.length, reopened };
+}
+
+export type LoginDeadlineChange = {
+  name: string;
+  email: string;
+  nodeId: string;
+  loginEmailAt: Date;
+  oldDueAt: Date | null;
+  dueAt: Date;
+  reopened: boolean;
+};
+
+/**
+ * Re-times everyone on a track from their latest login email (welcome or role added), for
+ * steps they hadn't started: people mailed days after their invite get the full time to
+ * respond. `dryRun` previews; otherwise it applies. Never shortens a deadline.
+ */
+export async function restartTrackFromLoginEmails(
+  db: Db,
+  actor: Actor,
+  input: { workflowId: string; dryRun: boolean },
+  now = new Date(),
+): Promise<LoginDeadlineChange[]> {
+  assertCan(actor, "manage", ADMIN_ONLY);
+  const latest = await db
+    .select({
+      userId: users.id,
+      name: candidates.name,
+      email: users.email,
+      at: sql<string>`max(${emailMessages.sentAt})`,
+    })
+    .from(emailMessages)
+    .innerJoin(users, eq(users.id, emailMessages.userId))
+    .innerJoin(candidates, eq(candidates.userId, users.id))
+    .innerJoin(applications, eq(applications.candidateId, candidates.id))
+    .where(
+      and(
+        inArray(emailMessages.templateKey, ["welcome", "role_added"]),
+        isNotNull(emailMessages.sentAt),
+        eq(applications.workflowId, input.workflowId),
+        eq(applications.testMode, false),
+      ),
+    )
+    .groupBy(users.id, candidates.name, users.email);
+  const out: LoginDeadlineChange[] = [];
+  for (const l of latest) {
+    const loginEmailAt = new Date(l.at);
+    const changes = await restartDeadlinesFromLogin(db, l.userId, loginEmailAt, {
+      workflowId: input.workflowId,
+      dryRun: input.dryRun,
+      now,
+    });
+    for (const c of changes)
+      out.push({
+        name: l.name,
+        email: l.email,
+        nodeId: c.nodeId,
+        loginEmailAt,
+        oldDueAt: c.oldDueAt,
+        dueAt: c.dueAt,
+        reopened: c.reopened,
+      });
+  }
+  if (!input.dryRun)
+    await audit(db, {
+      actorUserId: actor.userId,
+      action: "deadlines_restarted_from_login",
+      entity: "workflow",
+      entityId: input.workflowId,
+      after: { updated: out.length, reopened: out.filter((c) => c.reopened).length },
+    });
+  return out.sort((a, b) => a.name.localeCompare(b.name));
 }
