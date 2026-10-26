@@ -7,6 +7,7 @@ import {
   or,
   sql,
   applications,
+  auditLog,
   candidates,
   roles,
   stageProgress,
@@ -427,9 +428,26 @@ export async function restartDeadlinesFromLogin(
         opts.workflowId ? eq(applications.workflowId, opts.workflowId) : undefined,
       ),
     );
+  // Steps where the team set one date for everyone keep it: a login email doesn't move them.
+  const workflowIds = [...new Set(rows.map((r) => r.app.workflowId))];
+  const fixed = new Set(
+    workflowIds.length
+      ? (
+          await db
+            .select({ workflowId: auditLog.entityId, after: auditLog.after })
+            .from(auditLog)
+            .where(
+              and(
+                eq(auditLog.action, "step_deadline_set"),
+                inArray(auditLog.entityId, workflowIds),
+              ),
+            )
+        ).map((a) => `${a.workflowId}:${(a.after as { nodeId?: string } | null)?.nodeId}`)
+      : [],
+  );
   const changes: DeadlineRestart[] = [];
   for (const { progress: p, app } of rows) {
-    if (!app.workflowVersionId) continue;
+    if (!app.workflowVersionId || fixed.has(`${app.workflowId}:${p.nodeId}`)) continue;
     const node = (await versionConfig(db, app.workflowVersionId)).nodes.find(
       (n) => n.id === p.nodeId,
     );

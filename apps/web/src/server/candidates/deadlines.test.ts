@@ -87,10 +87,9 @@ async function invite(unlockedAt: Date) {
   return { appId: app!.id, actor, progressId: progress!.id };
 }
 
-beforeAll(async () => {
-  ({ db, close } = await createTestDb());
-  admin = await teamActor(db, "admin");
-  const role = await createRole(db, admin, { title: "Business Growth Intern", slug: "bgi" });
+/** A fresh track running the BD process; points `workflowId` and `roleId` at it. */
+async function newTrack(slug: string) {
+  const role = await createRole(db, admin, { title: "Business Growth Intern", slug });
   const cycle = await createCycle(db, admin, { roleId: role.id, name: "October 2026" });
   const { tracks } = await getCycleDetail(db, admin, cycle.id);
   const data = await getBuilderData(db, admin, tracks[0]!.id);
@@ -103,6 +102,12 @@ beforeAll(async () => {
   await publishDraft(db, admin, { workflowId: tracks[0]!.id, versionId: data.draft!.id });
   workflowId = tracks[0]!.id;
   roleId = role.id;
+}
+
+beforeAll(async () => {
+  ({ db, close } = await createTestDb());
+  admin = await teamActor(db, "admin");
+  await newTrack("bgi");
 });
 afterAll(() => close());
 
@@ -162,6 +167,7 @@ describe("same deadline for everyone at a step", () => {
 });
 
 describe("deadlines start from the login email", () => {
+  beforeAll(() => newTrack("bgi-login"));
   const loginEmail = (userId: string, sentAt: Date | null, status = "sent") =>
     db.insert(emailMessages).values({
       userId,
@@ -218,6 +224,25 @@ describe("deadlines start from the login email", () => {
     );
     expect((await row(early.progressId)).dueAt).toEqual(before[0]!.dueAt);
     expect((await row(extended.progressId)).dueAt).toEqual(before[1]!.dueAt);
+  });
+
+  it("leaves a step alone once the team set one date for everyone there", async () => {
+    const late = await invite(new Date("2026-10-18T06:00:00Z"));
+    await setStepDeadline(db, admin, {
+      workflowId,
+      nodeId: "task",
+      dueAt: new Date("2026-10-26T23:59:00+05:30"),
+      closesAt: new Date("2026-10-27T23:59:00+05:30"),
+    });
+    await loginEmail(late.actor.userId, new Date("2026-10-25T05:00:00Z"));
+    expect(
+      await restartTrackFromLoginEmails(
+        db,
+        admin,
+        { workflowId, dryRun: true },
+        new Date("2026-10-25T09:00:00Z"),
+      ),
+    ).toHaveLength(0);
   });
 
   it("lists who can't sign in: expired, failed, never sent", async () => {
