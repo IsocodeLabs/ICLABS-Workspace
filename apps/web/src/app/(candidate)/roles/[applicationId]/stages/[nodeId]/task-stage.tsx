@@ -9,6 +9,7 @@ import { Alert, Button } from "@/components/ui";
 import { submitTaskAction } from "@/app/(candidate)/stage-actions";
 import { FileUpload } from "./file-upload";
 import { SubmittedNotice, type NextStep } from "./submitted-notice";
+import { reportError } from "@/lib/client-errors";
 
 type Deliverable = {
   id: string;
@@ -73,10 +74,11 @@ export function TaskStage({
     let res: Awaited<ReturnType<typeof submitTaskAction>>;
     try {
       res = await submitTaskAction({ applicationId, nodeId, deliverables: payload });
-    } catch {
+    } catch (e) {
       // Usually the workspace was updated while this page was open.
       setBusy(false);
       setError(t("staleSubmitTask"));
+      reportError(e, "task-submit", t("staleSubmitTask"));
       return;
     }
     setBusy(false);

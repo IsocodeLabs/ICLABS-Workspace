@@ -21,6 +21,7 @@ export const TEMPLATE_KEYS = [
   "interview_scheduled",
   "interview_reminder",
   "interview_updated",
+  "error_alert",
 ] as const;
 export type TemplateKey = (typeof TEMPLATE_KEYS)[number];
 
@@ -231,6 +232,25 @@ The Isocode Labs hiring team`,
 {{update}}
 
 The Isocode Labs hiring team`,
+  },
+  error_alert: {
+    description: "To the team (ERROR_ALERT_EMAIL): someone was shown an error in the workspace",
+    subject: "Workspace error: {{who}} on {{page}}",
+    body: `Someone was just shown an error in the Isocode Workspace.
+
+What happened: {{summary}}
+Who: {{who}}
+Page: {{page}}
+When: {{when}}
+Seen: {{count}}
+
+They were shown: "{{shown}}"
+
+Technical detail (not shown to them): {{detail}}
+
+Caught in: {{where}}. Browser: {{browser}}
+
+The same problem won't be emailed again for 15 minutes; every occurrence is in the audit log (search "client").`,
   },
 };
 

@@ -19,6 +19,7 @@ import { startApplication } from "@/server/stages/progression";
 import { fileStore } from "@/server/stages/deps";
 import { eraseCandidateOnRequest } from "@/server/retention";
 import { redirect } from "next/navigation";
+import { reportServerError } from "@/server/errors/report";
 import type { TemplateKey } from "@/server/email/templates";
 
 export type PreviewLine = {
@@ -140,9 +141,10 @@ export async function eraseCandidateAction(
   try {
     await eraseCandidateOnRequest(db(), fileStore(), actor, candidateId);
   } catch (err) {
-    console.error("[erase] candidate", candidateId, err);
-    const reason = err instanceof Error ? err.message : String(err);
-    return { ok: false, error: `Couldn't delete this candidate: ${reason}` };
+    const shown =
+      "Couldn't delete this candidate just now. Try again in a minute. We've been notified.";
+    await reportServerError("erase", err, shown, `/team/candidates/${candidateId}`);
+    return { ok: false, error: shown };
   }
   revalidatePath("/team/candidates");
   redirect("/team/candidates");

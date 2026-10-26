@@ -6,6 +6,7 @@ import { useEffect, useRef, useState } from "react";
 import { wordCount, type FormField } from "@iclabs/core/workflow";
 import { Alert, Button } from "@/components/ui";
 import { saveDraftAction, submitFormAction } from "@/app/(candidate)/stage-actions";
+import { reportError } from "@/lib/client-errors";
 import { FileUpload } from "./file-upload";
 
 type Answers = Record<string, string | string[] | { id: string; name: string } | null>;
@@ -128,10 +129,11 @@ export function FormStage({
         setErrors(res.fieldErrors ?? {});
         setMessage(res.error);
       }
-    } catch {
+    } catch (e) {
       // Usually the workspace was updated while this page was open. Answers stay in the browser.
       writeBackup(key, answers);
       setStale(true);
+      reportError(e, "form-submit", t("staleSubmit"));
     } finally {
       setBusy(false);
     }

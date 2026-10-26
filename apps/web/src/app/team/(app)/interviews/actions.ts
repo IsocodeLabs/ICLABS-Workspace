@@ -13,6 +13,7 @@ import {
   scheduleInterview,
 } from "@/server/interviews";
 import { interviewDeps } from "@/server/interviews/deps";
+import { reportServerError } from "@/server/errors/report";
 
 export type InterviewActionResult =
   { ok: true } | { ok: false; error: string; conflicts?: string[]; needsLink?: boolean };
@@ -37,13 +38,11 @@ async function run(fn: () => Promise<InterviewActionResult>): Promise<InterviewA
   } catch (err) {
     if (err instanceof ForbiddenError)
       return { ok: false, error: "You don't have access to that." };
-    const detail = err instanceof Error ? err.message : String(err);
-    console.error("[interviews]", detail);
-    // Team-only screen: the real cause (e.g. "calendar POST /calendars/… → 403") saves a support round-trip.
-    return {
-      ok: false,
-      error: `Google Calendar returned an error (${detail.slice(0, 160)}). Try again in a minute.`,
-    };
+    // The real cause (e.g. "calendar POST /calendars/… → 403") goes to the team by email.
+    const shown =
+      "Google Calendar didn't accept that just now. Try again in a minute. We've been notified if it keeps failing.";
+    await reportServerError("interviews", err, shown, "/team/interviews");
+    return { ok: false, error: shown };
   }
 }
 

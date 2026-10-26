@@ -24,6 +24,8 @@ const schema = z.object({
   SNS_TOPIC_ARN: z.string().optional(),
   /** Shared secret Cloud Scheduler sends to /api/cron/* (Authorization: Bearer …). */
   CRON_SECRET: z.string().min(32),
+  /** Who gets an email when someone is shown an error in the workspace. */
+  ERROR_ALERT_EMAIL: z.email().default("hr@isocodelabs.com"),
   // ─── Candidate files ───
   STORAGE_DRIVER: z.enum(["gcs", "local"]).default("local"),
   GCS_BUCKET: z.string().optional(),

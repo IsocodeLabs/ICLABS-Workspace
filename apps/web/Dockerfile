@@ -6,6 +6,13 @@ RUN corepack enable
 WORKDIR /repo
 
 FROM base AS build
+# Next.js derives server action IDs from this key; left unset it's random per build, so every
+# deploy broke pages people already had open ("Server Action … was not found"). Fixed, an action
+# keeps its ID across deploys unless its file or name changes. Not a secret here (this repo is
+# public): every action checks the session itself, so a known ID grants nothing. The key would
+# also encrypt variables an inline server action captures from a page; none do. Before adding
+# one that captures something sensitive, move this key to Secret Manager.
+ENV NEXT_SERVER_ACTIONS_ENCRYPTION_KEY=t8Fuppw9JTAj59GyeeLvkBUJhwxaMT7icsCu3tKyHr8=
 COPY . .
 RUN pnpm install --frozen-lockfile
 RUN pnpm --filter @iclabs/web build

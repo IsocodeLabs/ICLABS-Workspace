@@ -4,6 +4,7 @@ import { useTranslations } from "next-intl";
 import { useState } from "react";
 import { Paperclip } from "lucide-react";
 import { SupportHint } from "@/components/ui";
+import { FriendlyError, friendlyMessage, reportError } from "@/lib/client-errors";
 
 type UploadStep =
   | { ok: true; fileId: string; url: string; headers: Record<string, string> }
@@ -21,8 +22,14 @@ async function uploadStep(body: Record<string, unknown>): Promise<UploadStep> {
   }).catch(() => null);
   if (!res) return { ok: false, error: "No connection. Check your internet and try again." };
   const json = (await res.json().catch(() => null)) as UploadStep | null;
-  if (json && "ok" in json) return json;
-  return { ok: false, error: `The workspace didn't respond (error ${res.status}). Try again.` };
+  if (json && "ok" in json && res.status < 500) return json;
+  const error =
+    json && "ok" in json && !json.ok
+      ? json.error
+      : "We couldn't upload your file right now. Try again in a few minutes, or share it as a link if this keeps happening.";
+  // The workspace itself failed: the team is told, the candidate gets words they can act on.
+  reportError(new Error(`Upload ${String(body.step)} failed: HTTP ${res.status}`), "upload", error);
+  return { ok: false, error };
 }
 
 /** Why storage refused the bytes, in words the candidate can act on. */
@@ -32,7 +39,7 @@ function putFailure(status: number | null): string {
   if (status === 400 || status === 403)
     return "The upload link expired or was refused. Choose the file again.";
   if (status === 413) return "Files can be up to 25 MB. Compress it, or share it as a link.";
-  return `Storage didn't accept the file (error ${status}). Try again in a minute.`;
+  return "Storage didn't accept the file. Try again in a minute.";
 }
 
 /** Uploads straight to storage with a short-lived URL, then confirms with the server. */
@@ -54,24 +61,32 @@ export function FileUpload({
     setError(null);
     try {
       if (file.size > MAX_BYTES)
-        throw new Error("Files can be up to 25 MB. Compress it, or share it as a link.");
+        throw new FriendlyError("Files can be up to 25 MB. Compress it, or share it as a link.");
       const req = await uploadStep({
         step: "request",
         filename: file.name,
         mime: file.type,
         size: file.size,
       });
-      if (!req.ok) throw new Error(req.error);
-      if (!("fileId" in req)) throw new Error("Choose the file again.");
+      if (!req.ok) throw new FriendlyError(req.error);
+      if (!("fileId" in req)) throw new FriendlyError("Choose the file again.");
       const put = await fetch(req.url, { method: "PUT", headers: req.headers, body: file }).catch(
         () => null,
       );
-      if (!put?.ok) throw new Error(putFailure(put ? put.status : null));
+      if (!put?.ok) {
+        const reason = putFailure(put ? put.status : null);
+        if (put && put.status >= 500)
+          reportError(new Error(`Storage PUT failed: HTTP ${put.status}`), "upload", reason);
+        throw new FriendlyError(reason);
+      }
       const done = await uploadStep({ step: "confirm", fileId: req.fileId });
-      if (!done.ok) throw new Error(done.error);
+      if (!done.ok) throw new FriendlyError(done.error);
       onChange({ id: req.fileId, name: file.name });
     } catch (e) {
-      setError((e as Error).message);
+      // Our own reasons are shown as they are; anything unexpected is reworded and reported.
+      const shown = friendlyMessage(e);
+      setError(shown);
+      reportError(e, "upload", shown);
     } finally {
       setBusy(false);
     }
