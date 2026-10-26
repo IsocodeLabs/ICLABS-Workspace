@@ -117,7 +117,7 @@ export function LoginRestartPanel({ tracks }: { tracks: Track[] }) {
       <ConfirmDialog
         open={confirm}
         title={`Give ${preview?.rows.length ?? 0} steps more time?`}
-        body="Each deadline moves to count from that person's login email. Steps marked missed reopen if the new deadline is still ahead. Candidates see the new dates straight away."
+        body="Each deadline moves to count from that person's login email. Steps marked missed reopen if the new deadline is still ahead. Each person is emailed their new date."
         confirmLabel="Apply"
         onCancel={() => setConfirm(false)}
         onConfirm={() => {

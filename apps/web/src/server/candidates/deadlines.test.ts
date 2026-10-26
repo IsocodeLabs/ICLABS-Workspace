@@ -196,7 +196,20 @@ describe("deadlines start from the login email", () => {
     });
     expect((await row(late.progressId)).state).toBe("missed");
 
-    await restartTrackFromLoginEmails(db, admin, { workflowId, dryRun: false }, now);
+    const queueEmail = vi.fn(async () => "id");
+    await restartTrackFromLoginEmails(db, admin, { workflowId, dryRun: false }, now, {
+      queueEmail,
+      appUrl: (p) => `https://w${p}`,
+    });
+    expect(queueEmail).toHaveBeenCalledWith(
+      expect.objectContaining({
+        templateKey: "deadline_updated",
+        vars: expect.objectContaining({
+          stage: "Industry research",
+          deadline: "26 Oct 2026, 11:59 pm IST",
+        }),
+      }),
+    );
     const after = await row(late.progressId);
     expect(after.dueAt).toEqual(new Date("2026-10-26T23:59:00+05:30"));
     expect(after.state).toBe("unlocked");

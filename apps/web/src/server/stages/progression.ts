@@ -409,14 +409,28 @@ export async function restartDeadlinesFromLogin(
   db: Db,
   userId: string,
   loginEmailAt: Date,
-  opts: { workflowId?: string; dryRun?: boolean; now?: Date } = {},
+  opts: {
+    workflowId?: string;
+    dryRun?: boolean;
+    now?: Date;
+    /** Emails each person their new date (deadline_updated). */
+    notify?: Pick<ProgressionDeps, "queueEmail" | "appUrl">;
+  } = {},
 ): Promise<DeadlineRestart[]> {
   const now = opts.now ?? new Date();
   const rows = await db
-    .select({ progress: stageProgress, app: applications })
+    .select({
+      progress: stageProgress,
+      app: applications,
+      name: candidates.name,
+      email: users.email,
+      roleTitle: roles.title,
+    })
     .from(stageProgress)
     .innerJoin(applications, eq(applications.id, stageProgress.applicationId))
     .innerJoin(candidates, eq(candidates.id, applications.candidateId))
+    .innerJoin(users, eq(users.id, candidates.userId))
+    .innerJoin(roles, eq(roles.id, applications.roleId))
     .where(
       and(
         eq(candidates.userId, userId),
@@ -446,7 +460,7 @@ export async function restartDeadlinesFromLogin(
       : [],
   );
   const changes: DeadlineRestart[] = [];
-  for (const { progress: p, app } of rows) {
+  for (const { progress: p, app, name, email, roleTitle } of rows) {
     if (!app.workflowVersionId || fixed.has(`${app.workflowId}:${p.nodeId}`)) continue;
     const node = (await versionConfig(db, app.workflowVersionId)).nodes.find(
       (n) => n.id === p.nodeId,
@@ -489,6 +503,20 @@ export async function restartDeadlinesFromLogin(
         reopened,
       },
     });
+    if (opts.notify && node.visibility === "candidate")
+      await opts.notify.queueEmail({
+        to: email,
+        templateKey: "deadline_updated",
+        userId,
+        applicationId: app.id,
+        vars: {
+          first_name: firstName(name),
+          role: roleTitle,
+          stage: node.title,
+          deadline: formatIst(dueAt),
+          stage_url: opts.notify.appUrl(`/roles/${app.id}/stages/${p.nodeId}`),
+        },
+      });
   }
   return changes;
 }

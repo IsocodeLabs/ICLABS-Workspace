@@ -13,6 +13,7 @@ export const TEMPLATE_KEYS = [
   "login_code",
   "stage_unlocked",
   "deadline_reminder",
+  "deadline_updated",
   "task_last_extension",
   "task_prepare",
   "submission_received",
@@ -129,6 +130,19 @@ The Isocode Labs hiring team`,
 A quick reminder that {{stage}} for {{role}} closes on {{deadline}}.
 
 [[button:Continue|{{stage_url}}]]
+
+The Isocode Labs hiring team`,
+  },
+  deadline_updated: {
+    description: "A step's deadline moved later (e.g. counted again from a late login email)",
+    subject: "{{role}}: {{stage}} is now due {{deadline}}",
+    body: `Hi {{first_name}},
+
+We've given you more time: {{stage}} for {{role}} is now due {{deadline}}. The deadline now counts from when your login email reached you.
+
+[[button:Open your dashboard|{{stage_url}}]]
+
+In case of any doubt or enquiry, contact hr@isocodelabs.com.
 
 The Isocode Labs hiring team`,
   },

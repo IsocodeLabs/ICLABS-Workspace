@@ -13,7 +13,7 @@ import {
 } from "@iclabs/db";
 import type { Actor } from "@iclabs/core";
 import { assertCan, audit } from "../audit";
-import { restartDeadlinesFromLogin } from "../stages/progression";
+import { restartDeadlinesFromLogin, type ProgressionDeps } from "../stages/progression";
 
 const ADMIN_ONLY = { type: "team_settings" } as const;
 
@@ -151,6 +151,7 @@ export async function restartTrackFromLoginEmails(
   actor: Actor,
   input: { workflowId: string; dryRun: boolean },
   now = new Date(),
+  notify?: Pick<ProgressionDeps, "queueEmail" | "appUrl">,
 ): Promise<LoginDeadlineChange[]> {
   assertCan(actor, "manage", ADMIN_ONLY);
   const latest = await db
@@ -180,6 +181,7 @@ export async function restartTrackFromLoginEmails(
       workflowId: input.workflowId,
       dryRun: input.dryRun,
       now,
+      notify,
     });
     for (const c of changes)
       out.push({

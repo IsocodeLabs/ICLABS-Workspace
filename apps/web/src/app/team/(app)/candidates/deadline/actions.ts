@@ -5,6 +5,7 @@ import { z } from "zod";
 import { formatIst } from "@iclabs/core";
 import { db } from "@/server/db";
 import { requireTeam } from "@/server/auth/session";
+import { appUrl, queueEmail } from "@/server/email";
 import {
   restartTrackFromLoginEmails,
   setStepDeadline,
@@ -95,10 +96,13 @@ export async function loginRestartAction(
   const { actor } = await requireTeam(["admin"]);
   const parsed = z.object({ workflowId: z.string().min(1).max(40) }).safeParse(raw);
   if (!parsed.success) return { error: "Pick a track." };
-  const changes = await restartTrackFromLoginEmails(db(), actor, {
-    workflowId: parsed.data.workflowId,
-    dryRun: !apply,
-  });
+  const changes = await restartTrackFromLoginEmails(
+    db(),
+    actor,
+    { workflowId: parsed.data.workflowId, dryRun: !apply },
+    new Date(),
+    { queueEmail, appUrl },
+  );
   if (apply) revalidatePath("/team/candidates");
   return {
     rows: changes.map((c) => ({

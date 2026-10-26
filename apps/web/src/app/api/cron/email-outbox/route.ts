@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { db } from "@/server/db";
 import { isCronRequest } from "@/server/cron";
-import { mailer, outboxConfig } from "@/server/email";
+import { appUrl, mailer, outboxConfig, queueEmail } from "@/server/email";
 import { processOutbox } from "@/server/email/outbox";
 import { restartDeadlinesFromLogin } from "@/server/stages/progression";
 
@@ -20,7 +20,7 @@ export async function POST(req: Request) {
     // A scheduled or resent login email restarts the clock on steps they couldn't start yet.
     onSent: async ({ templateKey, userId, sentAt }) => {
       if (userId && LOGIN_EMAILS.has(templateKey))
-        await restartDeadlinesFromLogin(db(), userId, sentAt);
+        await restartDeadlinesFromLogin(db(), userId, sentAt, { notify: { queueEmail, appUrl } });
     },
   });
   return NextResponse.json(result);
