@@ -6,7 +6,7 @@ Items marked **(verify)** are my reading of the code or request and should be ch
 
 ---
 
-## 1. "Login expired" button on the login page
+## 1. "Login expired" button on the login page (unchanged)
 
 **Goal:** a candidate whose temporary password has expired sees a button on the login page, "Login expired? Get fresh credentials here". Clicking it gives them a fresh login with a new temporary password.
 
@@ -26,29 +26,57 @@ Items marked **(verify)** are my reading of the code or request and should be ch
   - write an audit entry, as `issueTempPassword` already does
   - add a template next to the existing ones in `templates.ts` and a test next to `candidate-auth.test.ts`
 - **Why the email-only rule matters:** a public button that returns a password to anyone who types an email would let anybody take over any unactivated account.
+- **Must ship before task 2's emails are sent.** Both emails tell candidates to use this option on workspace.isocodelabs.com.
 
 **Done when:** an expired candidate clicks the button, enters their email, gets an email with a new temporary password, can sign in and is asked to change it. A made-up email gets the same message and no email. Repeated clicks get rate limited.
 
 ---
 
-## 2. Extend the Business Growth Intern deadline to the 28th EOD and email the candidates
+## 2. Final deadline extension to 31 Oct EOD, plus two emails
 
-**Goal:** every candidate in Business Growth Intern who has not submitted their task yet gets the deadline moved to the 28th EOD, on the workspace and by email.
+**Goal:** everyone still in the pipeline gets the last deadline moved to **31 October 2026, EOD (23:59 IST)**, on the workspace and by email. Two groups, two emails.
 
-- Connect through the MCP (see `TASK/task.md`, task 1). Role: **Business Growth Intern (Sales)**, id `01M57NPKTMRJ2G8605QAFW92SS`, cycle "October 2026", published track `01M57NPKVW5W7HKGEM1J7N8M7P`. Ignore the "(unused duplicate)" role. **(verify this is the "Business Development Intern" role you mean)**
-- Step 1, find who qualifies: `get_workflow` to find the task stage, then `get_pipeline` and `list_submissions` to list candidates at that task stage who have **no submission**. Do not include anyone who already submitted (a late submission counts as submitted).
-- Step 2, extend on the workspace:
-  - the deadline lives per candidate in `stage_progress` (`dueAt`, `graceUntil`, `extendedUntil`; see `packages/db/src/schema/stages.ts`)
-  - the closing time is `extendedUntil ?? graceUntil ?? dueAt` (`apps/web/src/server/stages/candidate.ts`)
-  - the existing function is `extendDeadline(db, actorUserId, progressId, until)` in `apps/web/src/server/stages/progression.ts`. It sets `extendedUntil`, reopens a missed stage and writes an audit entry. The pipeline board uses it through `extendDeadlineAction`.
-  - set `until` to the 28th EOD: `2026-10-28T23:59:00+05:30` **(verify the month and that EOD means 23:59 IST)**
-  - candidates already marked "missed" are reopened by `extendDeadline`. Decide whether they count as "not submitted". **(verify, I think yes)**
-  - the MCP tools I have seen are read and draft only, and I did not see one that extends a deadline. Either use the board in the browser, or add a small MCP tool or script that calls `extendDeadline` for a list of candidates. If a tool is added, it must follow the MCP rule: it prepares the action and an admin confirms it.
-- Step 3, email them:
-  - every candidate who got the extension gets one email: new deadline 28th EOD (IST), a link to their task, and nothing else
-  - use the existing outbox and templates (`apps/web/src/server/email/`) and the candidates message flow (`apps/web/src/app/team/(app)/candidates/message/`). Reuse a template if one fits, otherwise add one.
-  - send each email once. Do not email anyone who submitted.
-  - send the emails only after the deadlines are extended, so nobody is told a deadline the system does not have
-- Show the admin the full list of candidates (name, email, current deadline, new deadline) and get a yes before sending. This affects real candidates.
+### 2a. Extend the deadlines (do this before any email)
 
-**Done when:** every not-yet-submitted candidate shows the 28th EOD as their deadline in the workspace, each got exactly one email with the same date, and candidates who already submitted were not touched or emailed.
+- Roles: Business Growth Intern (BGI), Software Engineering Intern (SDE), Product Management Intern (PM). Cycle "October 2026". Use the published track of each. Ignore "(unused duplicate)" roles. **(verify the role ids with `list_roles_cycles_tracks`)**
+- Who: every candidate **still in the pipeline** in these three roles: status not `closed_rejected` / `closed_withdrawn`, and not test accounts (`testMode`).
+- What to extend, per role **(verify with the team)**:
+  - **BGI:** the open step each person is on, up to and including the task, to 31 Oct 23:59 IST. People who already submitted the task are not extended.
+  - **SDE and PM:** the details steps ("Your details" and the second form) to 31 Oct 23:59 IST. The task step is not opened yet (see 2c).
+- The deadline lives per candidate in `stage_progress` (`dueAt`, `graceUntil`, `extendedUntil`; `packages/db/src/schema/stages.ts`). Closing time is `extendedUntil ?? graceUntil ?? dueAt` (`apps/web/src/server/stages/candidate.ts`).
+- Existing function: `extendDeadline(db, actorUserId, progressId, until)` in `apps/web/src/server/stages/progression.ts`. It sets `extendedUntil`, reopens a missed step and audits. `until` = `2026-10-31T23:59:00+05:30`.
+- Do not change anyone's earlier `extendedUntil` to something earlier than 31 Oct. Candidates marked "missed" are reopened (same as the 26 Oct reopen).
+- The MCP is read and draft only. Use an admin script or a small admin action that calls `extendDeadline` for the list, or the pipeline board. Show the list (name, email, step, old deadline, new deadline) and get a yes before writing.
+
+### 2b. Email 1: Business Growth Intern
+
+- Audience: all BGI candidates in the pipeline (all steps, including those who already submitted the task). Each email names the person's current step.
+- Template key: new, e.g. `final_extension_bgi`. Add it in `apps/web/src/server/email/templates.ts` and register it in `ANNOUNCEMENTS` in `apps/web/src/server/candidates/announce.ts`. The review-then-send page at `/team/candidates/message` already previews the email and the full list and refuses to send if the count changed.
+- Content (candidate-facing, plain and short):
+  - Because of the many queries we received, we are extending the deadline to **31 October, EOD (IST)**. This is the final extension.
+  - If you have not submitted yet, complete your current step and the task by then.
+  - Shortlisted candidates from those who have submitted their task will have an **interview scheduled next week**.
+  - Your temporary password expired? You can now generate a fresh one with the new option on the login page at workspace.isocodelabs.com.
+  - Any doubt or enquiry: hr@isocodelabs.com.
+- Because the audience mixes "submitted" and "not submitted", the "waiting_on" / "submitted" groups in `announce.ts` do not fit as they are. Add a third group, "everyone in the pipeline" (open applications only), or add a line that reads correctly for both. **(verify)**
+
+### 2c. Email 2: SDE and PM
+
+- Audience: all SDE and PM candidates in the pipeline.
+- Template key: new, e.g. `final_extension_details`. Same registration as above.
+- Content:
+  - Because of the many queries we received, we are extending the deadline for the details forms to **31 October, EOD (IST)**. This is the final extension.
+  - The task will be shared on **Monday of the coming week (2 November)**, only to candidates who completed the previous two detail forms by the deadline. Further information about the task and its deadline will come alongside the task.
+  - Your temporary password expired? You can now generate a fresh one with the new option on the login page at workspace.isocodelabs.com.
+  - Any doubt or enquiry: hr@isocodelabs.com.
+- Do not promise the task to people who have not filled the forms; the wording is "only for those who completed both forms".
+
+### 2d. Sending rules
+
+- Send only after 2a is done and task 1 is live, so nobody is told a deadline the system does not have or pointed to a button that does not exist.
+- One email per person per template (the outbox already dedupes by template and application). Test accounts and closed applications are excluded.
+- Show the admin the exact email text and the full recipient list with counts per role, get a yes, then send. This reaches real candidates and cannot be recalled.
+- Emails go through the outbox and Amazon SES (about 50 per minute), from the hiring address. Both carry the hr@isocodelabs.com line.
+- Add tests next to `announce.test.ts`: audience per role, closed and test accounts excluded, dedupe on a second run.
+
+**Done when:** every in-pipeline candidate in the three roles has 31 Oct 23:59 IST as the closing time of their open step, each got exactly one email for their role with the same date, no closed or test accounts were touched, and the lists shown before sending matched the numbers sent.
