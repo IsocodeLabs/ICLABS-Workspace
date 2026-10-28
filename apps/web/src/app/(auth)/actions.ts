@@ -5,7 +5,13 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 import { db } from "@/server/db";
 import { auth, notifier } from "@/server/auth";
-import { changeCandidatePassword, signInCandidate } from "@/server/auth/candidate-auth";
+import {
+  changeCandidatePassword,
+  requestFreshCredentials,
+  signInCandidate,
+} from "@/server/auth/candidate-auth";
+import { sendFreshCredentials } from "@/server/candidates/invites";
+import { appUrl, queueEmail } from "@/server/email";
 import { requireCandidate } from "@/server/auth/session";
 import { clientIp } from "@/server/request";
 
@@ -40,6 +46,35 @@ export async function signInAction(_prev: FormState, form: FormData): Promise<Fo
     return { error: result.reason, retryMinutes };
   }
   redirect(result.mustChangePassword ? "/change-password" : "/");
+}
+
+export type FreshState = {
+  sent?: boolean;
+  error?: "invalid" | "rate_limited";
+  retryMinutes?: number;
+};
+
+/** "Login expired? Get fresh credentials here": the new password goes by email only. */
+export async function freshCredentialsAction(
+  _prev: FreshState | undefined,
+  form: FormData,
+): Promise<FreshState> {
+  const parsed = z
+    .email()
+    .max(254)
+    .safeParse(String(form.get("email") ?? "").trim());
+  if (!parsed.success) return { error: "invalid" };
+  const result = await requestFreshCredentials(
+    {
+      db: db(),
+      sendCredentials: (user, tempPassword) =>
+        sendFreshCredentials(db(), user, tempPassword, { queueEmail, loginUrl: appUrl("/login") }),
+    },
+    { email: parsed.data, ip: await clientIp() },
+  );
+  if (!result.ok)
+    return { error: "rate_limited", retryMinutes: Math.ceil(result.retryAfterMs / 60_000) };
+  return { sent: true };
 }
 
 const changeSchema = z

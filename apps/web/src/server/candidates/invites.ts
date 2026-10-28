@@ -379,6 +379,38 @@ export async function resendInvite(
   });
 }
 
+/** Emails a candidate the new temporary password they asked for on the login page. */
+export async function sendFreshCredentials(
+  db: Db,
+  user: { userId: string; email: string },
+  tempPassword: string,
+  deps: { queueEmail: (input: EnqueueInput) => Promise<string>; loginUrl: string },
+): Promise<void> {
+  const [c] = await db
+    .select({ id: candidates.id, name: candidates.name })
+    .from(candidates)
+    .where(eq(candidates.userId, user.userId));
+  const apps = c
+    ? await db
+        .select({ title: roles.title })
+        .from(applications)
+        .innerJoin(roles, eq(roles.id, applications.roleId))
+        .where(eq(applications.candidateId, c.id))
+    : [];
+  await deps.queueEmail({
+    to: user.email,
+    templateKey: "fresh_credentials",
+    userId: user.userId,
+    vars: {
+      first_name: (c?.name ?? "there").split(" ")[0]!,
+      roles: apps.map((a) => a.title).join(" and ") || "Isocode Labs",
+      email: user.email,
+      login_url: deps.loginUrl,
+    },
+    secrets: { temp_password: tempPassword },
+  });
+}
+
 /** Removes a role from a candidate without emailing them; other roles are untouched. */
 export async function revokeApplication(
   db: Db,

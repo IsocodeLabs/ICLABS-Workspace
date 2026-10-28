@@ -20,9 +20,10 @@
     "errors": {
       "invalid": "Email or password is incorrect. Check the capital letters in your temporary password, or click “Forgot your password?” below and we'll email you a new one.",
       "locked": "Too many attempts. Your account is locked for {minutes} minutes. We've emailed you in case this wasn't you.",
-      "temp_expired": "Your temporary password has expired. Write to hiring@isocodelabs.com and we'll send a new one.",
+      "temp_expired": "Your temporary password has expired. Click “Login expired? Get fresh credentials here” below and we'll email you a new one.",
       "rate_limited": "Too many attempts. Please wait {minutes} minute(s) and try again."
-    }
+    },
+    "expiredLink": "Login expired? Get fresh credentials here"
   },
   "changePassword": {
     "title": "Create your password",
@@ -49,6 +50,18 @@
     "submit": "Send reset link",
     "sent": "If that email has an account, a reset link is on its way.",
     "back": "Back to sign in"
+  },
+  "fresh": {
+    "title": "Get fresh login details",
+    "subtitle": "Temporary password expired or lost? Enter the email you applied with and we'll email you a new temporary password.",
+    "submit": "Email me fresh credentials",
+    "sent": "If this email has a candidate account that hasn't set its own password yet, we've emailed it fresh login details. They can take a few minutes to arrive, so check your spam folder too. Already chose your own password? Use “Forgot your password?” instead.",
+    "back": "Back to sign in",
+    "ownPassword": "Already set your own password? Reset it here",
+    "errors": {
+      "invalid": "Enter the email address you applied with.",
+      "rate_limited": "You've asked several times already. Please wait {minutes} minute(s), then check your inbox (and spam) before trying again."
+    }
   },
   "reset": {
     "title": "Choose a new password",

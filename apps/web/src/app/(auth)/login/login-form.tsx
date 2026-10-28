@@ -37,6 +37,12 @@ export function LoginForm() {
       <Button type="submit" disabled={pending}>
         {pending ? common("loading") : t("submit")}
       </Button>
+      <Link
+        href="/fresh-login"
+        className={`mt-4 block rounded-xl border px-4 py-2.5 text-center text-sm font-semibold hover:border-brand-500 ${state?.error === "temp_expired" ? "border-brand-500 text-brand-600" : "border-border"}`}
+      >
+        {t("expiredLink")}
+      </Link>
       <div className="mt-5 flex flex-col gap-2 text-sm">
         <Link href="/forgot-password" className="font-semibold text-brand-600 hover:underline">
           {t("forgot")}

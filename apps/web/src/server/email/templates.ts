@@ -22,12 +22,13 @@ export const TEMPLATE_KEYS = [
   "interview_reminder",
   "interview_updated",
   "error_alert",
+  "fresh_credentials",
 ] as const;
 export type TemplateKey = (typeof TEMPLATE_KEYS)[number];
 
 /** Variables that carry secrets: only these templates may use them, and they're never stored. */
 export const SECRET_VARS: Record<string, readonly TemplateKey[]> = {
-  temp_password: ["welcome"],
+  temp_password: ["welcome", "fresh_credentials"],
   reset_url: ["password_reset"],
   code: ["login_code"],
 };
@@ -251,6 +252,26 @@ Technical detail (not shown to them): {{detail}}
 Caught in: {{where}}. Browser: {{browser}}
 
 The same problem won't be emailed again for 15 minutes; every occurrence is in the audit log (search "client").`,
+  },
+  fresh_credentials: {
+    description: 'The candidate asked for a new login on the login page ("Login expired?")',
+    subject: "Your new Isocode Workspace login",
+    body: `Hi {{first_name}},
+
+You asked for fresh login details for your {{roles}} application. Any temporary password we sent you before no longer works; use this one.
+
+Login ID: {{email}}
+Temporary password: {{temp_password}}
+
+The temporary password works for 72 hours. You'll choose your own password when you sign in. The workspace works on a laptop or desktop.
+
+[[button:Sign in to the workspace|{{login_url}}]]
+
+Didn't ask for this? You can ignore this email: only someone with access to this inbox can use the password.
+
+In case of any doubt or enquiry, contact hr@isocodelabs.com.
+
+The Isocode Labs hiring team`,
   },
 };
 

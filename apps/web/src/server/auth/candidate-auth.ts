@@ -228,6 +228,78 @@ export async function signInCandidate(
   return { ok: true, mustChangePassword: user.mustChangePassword };
 }
 
+// ─── "Login expired?" ────────────────────────────────────────────────────────
+
+/** Per address and per network: enough for a candidate who clicks twice, not for a script. */
+export const FRESH_LOGIN_RATE_LIMITS: Record<"email" | "ip", RateLimitRule> = {
+  email: { limit: 3, windowMs: 60 * 60_000 },
+  ip: { limit: 20, windowMs: 60 * 60_000 },
+};
+
+export type FreshCredentialsResult =
+  { ok: true } | { ok: false; reason: "rate_limited"; retryAfterMs: number };
+
+/**
+ * The login page's "Login expired? Get fresh credentials here". A new temporary password goes
+ * to the account's own inbox (never to the screen), and only for a candidate who hasn't set
+ * their own password yet; team accounts and everyone else get nothing. The answer is the same
+ * either way, so the button can't be used to find out which emails have accounts.
+ */
+export async function requestFreshCredentials(
+  deps: {
+    db: Db;
+    /** Emails the new temporary password to the account; the only place it goes. */
+    sendCredentials: (
+      user: { userId: string; email: string },
+      tempPassword: string,
+    ) => Promise<void>;
+    now?: () => Date;
+  },
+  input: { email: string; ip: string },
+): Promise<FreshCredentialsResult> {
+  const { db } = deps;
+  const now = deps.now?.() ?? new Date();
+  const email = normalize(input.email);
+
+  for (const [key, rule] of [
+    [`fresh-login:email:${email}`, FRESH_LOGIN_RATE_LIMITS.email],
+    [`fresh-login:ip:${input.ip}`, FRESH_LOGIN_RATE_LIMITS.ip],
+  ] as const) {
+    const limit = await hitRateLimit(db, key, rule, now);
+    if (!limit.allowed)
+      return { ok: false, reason: "rate_limited", retryAfterMs: limit.retryAfterMs };
+  }
+
+  const [user] = await db
+    .select({
+      id: users.id,
+      kind: users.kind,
+      status: users.status,
+      mustChangePassword: users.mustChangePassword,
+      candidateId: candidates.id,
+    })
+    .from(users)
+    .leftJoin(candidates, eq(candidates.userId, users.id))
+    .where(eq(users.email, email));
+
+  if (
+    !user ||
+    user.kind !== "candidate" ||
+    user.status !== "active" ||
+    !user.candidateId ||
+    !user.mustChangePassword
+  ) {
+    // Takes about as long as issuing one, so timing doesn't tell either.
+    await burnVerifyTime(email);
+    return { ok: true };
+  }
+
+  const tempPassword = await issueTempPassword(db, user.id, now);
+  await deps.sendCredentials({ userId: user.id, email }, tempPassword);
+  await audit(db, { actorUserId: null, action: "fresh_credentials_sent", entityId: user.id });
+  return { ok: true };
+}
+
 // ─── Password change ─────────────────────────────────────────────────────────
 
 export type ChangePasswordResult =

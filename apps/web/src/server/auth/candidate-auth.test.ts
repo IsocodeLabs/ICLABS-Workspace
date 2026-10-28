@@ -7,6 +7,7 @@ import {
   changeCandidatePassword,
   createCandidateAccount,
   issueTempPassword,
+  requestFreshCredentials,
   signInCandidate,
   tempPasswordAttempts,
   type AuthNotifier,
@@ -300,6 +301,79 @@ describe("changeCandidatePassword", () => {
     expect(await signIn("good@example.com", newPassword)).toEqual({
       ok: true,
       mustChangePassword: false,
+    });
+  });
+});
+
+describe("requestFreshCredentials (login expired?)", () => {
+  const ask = (email: string, ip = `10.9.0.${++ipCounter}`) => {
+    const sent: { email: string; password: string }[] = [];
+    const result = requestFreshCredentials(
+      {
+        db,
+        now: () => clock,
+        sendCredentials: async (user, tempPassword) => {
+          sent.push({ email: user.email, password: tempPassword });
+        },
+      },
+      { email, ip },
+    );
+    return result.then((r) => ({ r, sent }));
+  };
+
+  it("emails an expired candidate a new temporary password that signs in with a forced change", async () => {
+    const { tempPassword } = await newCandidate("fresh@example.com");
+    clock = new Date(clock.getTime() + TEMP_PASSWORD_TTL_MS + 60_000);
+    expect(await signIn("fresh@example.com", tempPassword)).toMatchObject({
+      reason: "temp_expired",
+    });
+
+    const { r, sent } = await ask("  Fresh@Example.com ");
+    expect(r).toEqual({ ok: true });
+    expect(sent).toHaveLength(1);
+    expect(sent[0]!.email).toBe("fresh@example.com");
+    expect(sent[0]!.password).not.toBe(tempPassword);
+    expect(await signIn("fresh@example.com", sent[0]!.password)).toEqual({
+      ok: true,
+      mustChangePassword: true,
+    });
+    expect((await signIn("fresh@example.com", tempPassword)).ok).toBe(false);
+    const logged = await db
+      .select()
+      .from(auditLog)
+      .where(eq(auditLog.action, "fresh_credentials_sent"));
+    expect(logged.length).toBeGreaterThan(0);
+  });
+
+  it("answers an unknown email the same way and sends nothing", async () => {
+    const { r, sent } = await ask("nobody-here@example.com");
+    expect(r).toEqual({ ok: true });
+    expect(sent).toHaveLength(0);
+  });
+
+  it("never reissues for team accounts or candidates who set their own password", async () => {
+    await db.insert(users).values({ email: "lead2@isocodelabs.com", name: "Lead", kind: "team" });
+    const team = await ask("lead2@isocodelabs.com");
+    expect(team).toEqual({ r: { ok: true }, sent: [] });
+
+    const { userId } = await newCandidate("own@example.com");
+    await db.update(users).set({ mustChangePassword: false }).where(eq(users.id, userId));
+    const own = await ask("own@example.com");
+    expect(own).toEqual({ r: { ok: true }, sent: [] });
+  });
+
+  it("rate-limits repeated requests for one email, from any network", async () => {
+    await newCandidate("spam@example.com");
+    for (let i = 0; i < 3; i++) expect((await ask("spam@example.com")).r.ok).toBe(true);
+    const fourth = await ask("spam@example.com");
+    expect(fourth.r).toMatchObject({ ok: false, reason: "rate_limited" });
+    expect(fourth.sent).toHaveLength(0);
+  });
+
+  it("rate-limits one network asking for many emails", async () => {
+    for (let i = 0; i < 20; i++) await ask(`probe${i}@example.com`, "7.7.7.7");
+    expect((await ask("probe-last@example.com", "7.7.7.7")).r).toMatchObject({
+      reason: "rate_limited",
     });
   });
 });
