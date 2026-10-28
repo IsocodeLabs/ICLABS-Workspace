@@ -65,8 +65,10 @@ export async function isTesting(): Promise<boolean> {
 
 /** Null when the candidate side is open to this browser; otherwise the notice to show. */
 export async function maintenanceBlock(): Promise<Maintenance | null> {
+  // The cookie first: it marks the page as per-request, so nothing is read at build time.
+  const testing = await isTesting();
   const m = await maintenance();
-  if (!m.on || (await isTesting())) return null;
+  if (!m.on || testing) return null;
   return m;
 }
 
