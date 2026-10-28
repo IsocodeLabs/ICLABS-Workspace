@@ -223,6 +223,84 @@ describe("candidate flow through stages", () => {
     });
   });
 
+  it("lets a handed-in form be changed, file included, until the step closes", async () => {
+    const { app, actor, candidateId } = await newApplication();
+    const ownFile = async (name: string) =>
+      (
+        await db
+          .insert(files)
+          .values({
+            ownerCandidateId: candidateId,
+            objectKey: `c/${Math.random()}`,
+            filename: name,
+            mime: "application/pdf",
+            size: 1,
+            uploadedAt: clock,
+            scanStatus: "clean",
+          })
+          .returning()
+      )[0]!;
+    const first = await ownFile("cv-old.pdf");
+    expect(
+      await submitForm(db, deps, actor, app.id, "form", { track: "Backend", cv: first.id }),
+    ).toMatchObject({ ok: true });
+    const [quizBefore] = await db
+      .select()
+      .from(stageProgress)
+      .where(and(eq(stageProgress.applicationId, app.id), eq(stageProgress.nodeId, "quiz")));
+
+    const view = await getCandidateStage(db, actor, app.id, "form", clock);
+    // A form nobody reviews passes on hand-in.
+    expect(view).toMatchObject({ state: "passed", canSubmit: false, canEdit: true });
+    expect(view!.lastSubmission!.files).toEqual({ [first.id]: "cv-old.pdf" });
+
+    // Change the answer and replace the PDF: a new version, nothing moves on again.
+    const second = await ownFile("cv-new.pdf");
+    expect(
+      await submitForm(db, deps, actor, app.id, "form", { track: "Frontend", cv: second.id }),
+    ).toMatchObject({ ok: true });
+    const [progress] = await db
+      .select()
+      .from(stageProgress)
+      .where(and(eq(stageProgress.applicationId, app.id), eq(stageProgress.nodeId, "form")));
+    const versions = await db
+      .select()
+      .from(submissions)
+      .where(eq(submissions.stageProgressId, progress!.id));
+    expect(versions.map((v) => v.version).sort()).toEqual([1, 2]);
+    expect(progress!.state).toBe("passed");
+    const latest = (await getCandidateStage(db, actor, app.id, "form", clock))!.lastSubmission!;
+    expect(latest.data).toMatchObject({ track: "Frontend", cv: second.id });
+    expect(latest.files).toEqual({ [second.id]: "cv-new.pdf" });
+    const [quizAfter] = await db
+      .select()
+      .from(stageProgress)
+      .where(and(eq(stageProgress.applicationId, app.id), eq(stageProgress.nodeId, "quiz")));
+    expect(quizAfter!.unlockedAt).toEqual(quizBefore!.unlockedAt);
+    expect(queueEmail).not.toHaveBeenCalled();
+
+    // Once the step closes, no more changes.
+    clock = new Date((progress!.graceUntil ?? progress!.dueAt)!.getTime() + 60_000);
+    expect(await getCandidateStage(db, actor, app.id, "form", clock)).toMatchObject({
+      canEdit: false,
+    });
+    expect(await submitForm(db, deps, actor, app.id, "form", { track: "Backend" })).toMatchObject({
+      ok: false,
+    });
+  });
+
+  it("doesn't let a closed application change its answers", async () => {
+    const { app, actor } = await newApplication();
+    await submitForm(db, deps, actor, app.id, "form", { track: "Backend" });
+    await db
+      .update(applications)
+      .set({ status: "closed_rejected" })
+      .where(eq(applications.id, app.id));
+    expect(await submitForm(db, deps, actor, app.id, "form", { track: "Frontend" })).toMatchObject({
+      ok: false,
+    });
+  });
+
   it("runs a timed quiz: no answer keys sent, server clock enforced, auto-scored, routed", async () => {
     const { app, actor } = await newApplication();
     await submitForm(db, deps, actor, app.id, "form", { track: "Backend" });

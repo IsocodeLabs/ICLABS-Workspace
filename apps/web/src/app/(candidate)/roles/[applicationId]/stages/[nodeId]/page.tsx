@@ -10,6 +10,7 @@ import { getCandidateStage } from "@/server/stages/candidate";
 import { candidateInterview } from "@/server/interviews";
 import { roleSpace } from "@/server/portal";
 import { AssessmentStage } from "./assessment-stage";
+import { EditAnswers } from "./edit-answers";
 import { FormStage } from "./form-stage";
 import { SubmittedNotice, type NextStep } from "./submitted-notice";
 import { TaskStage } from "./task-stage";
@@ -80,6 +81,16 @@ export default async function StagePage({
               next={nextStep}
             />
           )}
+          {submitted && stage.canEdit && "fields" in node && (
+            <EditAnswers
+              applicationId={applicationId}
+              nodeId={nodeId}
+              fields={node.fields}
+              closesAt={formatIst(stage.closesAt!)}
+              answers={stage.lastSubmission!.data as Record<string, unknown>}
+              files={stage.lastSubmission!.files}
+            />
+          )}
           {!stage.closed &&
             !submitted &&
             (node.type === "form" || node.type === "custom") &&
@@ -99,10 +110,12 @@ export default async function StagePage({
                       data: stage.lastSubmission.data as Record<string, string>,
                       submittedAt: stage.lastSubmission.submittedAt.toISOString(),
                       isLate: stage.lastSubmission.isLate,
+                      files: stage.lastSubmission.files,
                     }
                   : null
               }
               closed={stage.closed}
+              canEdit={stage.canEdit}
               nextStep={nextStep}
             />
           )}

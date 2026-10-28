@@ -43,6 +43,8 @@ export function FormStage({
   fields,
   draft,
   canSubmit,
+  editing,
+  onDone,
 }: {
   applicationId: string;
   nodeId: string;
@@ -50,6 +52,9 @@ export function FormStage({
   draft: Record<string, unknown>;
   canSubmit: boolean;
   closesAt: string | null;
+  /** Changing answers already handed in: no server drafts, and a Cancel button. */
+  editing?: boolean;
+  onDone?: () => void;
 }) {
   const t = useTranslations("stage");
   const router = useRouter();
@@ -78,6 +83,8 @@ export function FormStage({
     const snapshot = JSON.stringify(answers);
     if (snapshot === lastSaved.current) return;
     writeBackup(key, answers);
+    // The handed-in version stays as it is until they save the change.
+    if (editing) return;
     setSaving("saving");
     const timer = setTimeout(async () => {
       try {
@@ -92,7 +99,7 @@ export function FormStage({
       // 2.5s after typing stops: thousands of candidates writing at once stay a light load.
     }, 2500);
     return () => clearTimeout(timer);
-  }, [answers, applicationId, nodeId, key]);
+  }, [answers, applicationId, nodeId, key, editing]);
 
   const set = (id: string, v: Answers[string]) => setAnswers((a) => ({ ...a, [id]: v }));
 
@@ -125,6 +132,7 @@ export function FormStage({
       if (res.ok) {
         writeBackup(key, null);
         router.refresh();
+        onDone?.();
       } else {
         setErrors(res.fieldErrors ?? {});
         setMessage(res.error);
@@ -273,8 +281,20 @@ export function FormStage({
       })}
       <div className="mt-6 flex items-center gap-4">
         <Button type="submit" disabled={!canSubmit || busy} className="!w-auto px-8">
-          {t("submit")}
+          {editing ? t("saveChanges") : t("submit")}
         </Button>
+        {editing && (
+          <button
+            type="button"
+            onClick={() => {
+              writeBackup(key, null);
+              onDone?.();
+            }}
+            className="text-sm font-semibold text-muted hover:underline"
+          >
+            {t("cancelEdit")}
+          </button>
+        )}
         <span className="text-sm text-muted" aria-live="polite">
           {saving === "saving"
             ? t("saving")

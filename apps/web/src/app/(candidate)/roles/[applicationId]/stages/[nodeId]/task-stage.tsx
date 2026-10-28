@@ -35,6 +35,7 @@ export function TaskStage({
   last,
   closed,
   canSubmit,
+  canEdit,
   nextStep,
 }: {
   applicationId: string;
@@ -49,23 +50,33 @@ export function TaskStage({
     data: Record<string, string>;
     submittedAt: string;
     isLate: boolean;
+    files: Record<string, string>;
   } | null;
   closed: boolean;
   canSubmit: boolean;
+  /** Handed in, and can still be changed until the step closes. */
+  canEdit: boolean;
   closesAt: string | null;
   nextStep: NextStep;
 }) {
   const t = useTranslations("stage");
   const router = useRouter();
   const [values, setValues] = useState<Record<string, string>>(last?.data ?? {});
-  const [files, setFiles] = useState<Record<string, { id: string; name: string } | null>>({});
+  // Files already handed in show by name, so they can be kept or replaced.
+  const [files, setFiles] = useState<Record<string, { id: string; name: string } | null>>(() =>
+    Object.fromEntries(
+      deliverables
+        .filter((d) => d.kind === "file" && last?.data[d.id] && last.files[last.data[d.id]!])
+        .map((d) => [d.id, { id: last!.data[d.id]!, name: last!.files[last!.data[d.id]!]! }]),
+    ),
+  );
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [error, setError] = useState<string | null>(null);
   // Set the moment a submission lands, before the refresh brings back `last`.
   const [justSubmitted, setJustSubmitted] = useState<{ at: string; late: boolean } | null>(null);
   const [busy, setBusy] = useState(false);
   const noticeRef = useRef<HTMLDivElement>(null);
-  const editable = !closed && (canSubmit || (!!last && allowResubmit));
+  const editable = !closed && (canSubmit || (!!last && (allowResubmit || canEdit)));
 
   async function submit() {
     setBusy(true);
@@ -213,7 +224,9 @@ export function TaskStage({
             );
           })}
         </fieldset>
-        {allowResubmit && <p className="mb-4 text-sm text-muted">{t("versions")}</p>}
+        {(allowResubmit || canEdit) && last && (
+          <p className="mb-4 text-sm text-muted">{t("versions")}</p>
+        )}
         {editable && (
           <Button type="submit" disabled={busy} className="!w-auto px-8">
             {last ? t("resubmit") : t("submit")}

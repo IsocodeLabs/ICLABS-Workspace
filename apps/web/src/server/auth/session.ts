@@ -6,6 +6,7 @@ import { db } from "../db";
 import { hasConsented } from "../portal";
 import { loadActor } from "./actor";
 import { auth } from "./index";
+import { redirectIfMaintenance } from "../maintenance";
 
 export async function getSession() {
   // Read request headers first: it marks the page dynamic before any secret is needed.
@@ -22,6 +23,8 @@ type Session = NonNullable<Awaited<ReturnType<typeof getSession>>>;
 export async function requireCandidate(
   opts: { passwordChangePage?: boolean; consentPage?: boolean } = {},
 ): Promise<{ session: Session; actor: Extract<Actor, { kind: "candidate" }> }> {
+  // Every candidate page and action: closed during maintenance (except to testers).
+  await redirectIfMaintenance();
   const session = await getSession();
   if (!session) redirect("/login");
   if (session.user.kind !== "candidate") redirect("/team");

@@ -6,6 +6,7 @@ import { getSession } from "@/server/auth/session";
 import { loadActor } from "@/server/auth/actor";
 import { fileStore } from "@/server/stages/deps";
 import { confirmUpload, requestUpload } from "@/server/storage/files";
+import { maintenanceBlock } from "@/server/maintenance";
 
 /**
  * Candidate uploads: step 1 ("request") hands back a short-lived storage URL, step 2
@@ -35,6 +36,12 @@ export async function POST(req: NextRequest) {
   if (origin && origin !== new URL(env().BETTER_AUTH_URL).origin && origin !== req.nextUrl.origin)
     return fail("Upload from the workspace page itself.", 403);
 
+  const down = await maintenanceBlock();
+  if (down)
+    return fail(
+      `Isocode Workspace is under maintenance and will be back live by ${down.backBy}. Please upload your file then.`,
+      503,
+    );
   const session = await getSession();
   if (!session || session.user.kind !== "candidate")
     return fail("You've been signed out. Sign in again, then upload the file.", 401);

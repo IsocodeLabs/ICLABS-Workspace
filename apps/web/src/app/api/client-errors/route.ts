@@ -3,6 +3,7 @@ import { z } from "zod";
 import { env } from "@/server/env";
 import { ERROR_KINDS } from "@/server/errors/alerts";
 import { reportToTeam } from "@/server/errors/report";
+import { maintenance } from "@/server/maintenance";
 
 /**
  * The browser reports every error a person is shown (see lib/client-errors.ts). Logged, and
@@ -45,6 +46,8 @@ export async function POST(req: NextRequest) {
   const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown";
   if (tooMany(ip, Date.now())) return new NextResponse(null, { status: 429 });
 
+  // Pages open when maintenance started fail on purpose; not worth an alert each.
+  if ((await maintenance()).on) return new NextResponse(null, { status: 204 });
   await reportToTeam({ ...parsed, userAgent: req.headers.get("user-agent") ?? undefined });
   return new NextResponse(null, { status: 204 });
 }

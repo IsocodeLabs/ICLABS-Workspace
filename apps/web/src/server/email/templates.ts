@@ -278,40 +278,44 @@ The Isocode Labs hiring team`,
   final_extension_bgi: {
     description:
       "Sent by an admin: final extension to 31 October for everyone in the Business Growth process",
-    subject: "{{role}}: final deadline extended to 31 October",
+    subject: "{{role}}: deadline extended to 31 October (final deadline)",
     body: `Hi {{first_name}},
 
-Because of the many queries we received, we are extending the deadline for your {{role}} application to 31 October, end of day (11:59 pm IST). This is the final extension.
+After receiving multiple requests for deadline extensions, we have decided to extend the deadline for everyone in the {{role}} process to 31 October, end of day (11:59 pm IST). Please treat this as the final deadline.
 
 Your current step: {{stage}}.
 
-If you haven't submitted yet, please complete your current step and the task by then.
+If you haven't submitted yet, please complete your remaining steps, including the task, by then.
 
-Shortlisted candidates from those who have submitted the task will have an interview scheduled next week.
+If you have already submitted, you can review your answers, and change them or replace your file, until the deadline. You may also use this time to prepare for the next rounds.
 
-Temporary password expired? You can now get a fresh one yourself: use the "Login expired? Get fresh credentials here" option on the login page at workspace.isocodelabs.com.
+All shortlisted candidates will be informed of their interview slots by 5 pm IST on 1 November.
+
+Temporary password expired? You can get a fresh one yourself with "Login expired? Get fresh credentials here" on the login page at workspace.isocodelabs.com.
 
 [[button:Open your dashboard|{{stage_url}}]]
 
-In case of any doubt or enquiry, contact hr@isocodelabs.com.
+Please send any queries to hr@isocodelabs.com only. Please don't reach out to or email other members of the team directly, as your query may then stay unresolved.
 
 The Isocode Labs hiring team`,
   },
   final_extension_details: {
     description:
-      "Sent by an admin: final extension of the details forms to 31 October (Software Engineering and Product Management)",
-    subject: "{{role}}: details forms now due 31 October (final extension)",
+      "Sent by an admin: details registration extended to 31 October (Software Engineering and Product Management)",
+    subject: "{{role}}: details registration extended to 31 October (final deadline)",
     body: `Hi {{first_name}},
 
-Because of the many queries we received, we are extending the deadline for the details forms of your {{role}} application to 31 October, end of day (11:59 pm IST). This is the final extension.
+The deadline for the initial details registration for your {{role}} application has been extended to 31 October, end of day (11:59 pm IST). Please treat this as the final deadline.
 
-The task will be shared on Monday, 2 November, only with candidates who completed both details forms by this deadline. Further information about the task and its deadline will come along with the task.
+If you have already submitted, you can review your answers, and change them or replace your file, until the deadline.
 
-Temporary password expired? You can now get a fresh one yourself: use the "Login expired? Get fresh credentials here" option on the login page at workspace.isocodelabs.com.
+The tasks for these roles will be released to shortlisted candidates on 2 November.
+
+Temporary password expired? You can get a fresh one yourself with "Login expired? Get fresh credentials here" on the login page at workspace.isocodelabs.com.
 
 [[button:Open your dashboard|{{stage_url}}]]
 
-In case of any doubt or enquiry, contact hr@isocodelabs.com.
+Please send any queries to hr@isocodelabs.com only. Please don't reach out to or email other members of the team directly, as your query may then stay unresolved.
 
 The Isocode Labs hiring team`,
   },

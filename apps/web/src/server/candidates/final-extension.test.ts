@@ -372,8 +372,8 @@ describe("final extension emails", () => {
     expect(esha.vars.role).toBe("Product Management Intern and Software Engineering Intern");
     const text = renderEmail(DEFAULT_TEMPLATES.final_extension_details, esha.vars).text;
     expect(text).toContain("31 October, end of day (11:59 pm IST)");
-    expect(text).toContain("only with candidates who completed both details forms");
+    expect(text).toContain("released to shortlisted candidates on 2 November");
     expect(text).toContain("Login expired? Get fresh credentials here");
-    expect(text).toContain("hr@isocodelabs.com");
+    expect(text).toContain("Please send any queries to hr@isocodelabs.com only.");
   });
 });

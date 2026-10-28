@@ -223,7 +223,7 @@
     "fileHint": "PDF, images, ZIP or Office files, up to 25 MB.",
     "brief": "Brief",
     "deliverables": "What to submit",
-    "versions": "You can resubmit until the deadline. We review your latest version.",
+    "versions": "You can change your submission until the deadline. We review your latest version.",
     "interview": "We'll email you the interview time and link once it's scheduled.",
     "interviewBooked": "Your {round} is booked",
     "interviewWhen": "{when} · {minutes} minutes",
@@ -255,7 +255,11 @@
       "pasteBlocked": "Pasting is turned off for this test.",
       "done": "Your test was submitted. You can close this page.",
       "writeAnswer": "Type your answer"
-    }
+    },
+    "editOpen": "You can still change your answers or replace your file until {date}. We review your latest version.",
+    "editAnswers": "Change your answers",
+    "saveChanges": "Save changes",
+    "cancelEdit": "Cancel"
   },
   "teamPassword": {
     "requestTitle": "Set or reset your password",

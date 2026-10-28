@@ -11,6 +11,7 @@ import {
   questions,
   stageProgress,
   submissions,
+  files,
   workflows,
   type Db,
 } from "@iclabs/db";
@@ -30,7 +31,13 @@ import {
 } from "@iclabs/core";
 import { TEMPLATE_KEYS, type TemplateKey } from "../email/templates";
 import { checkOwnFiles } from "../storage/files";
-import { completeSubmission, loadPinned, versionConfig, type ProgressionDeps } from "./progression";
+import {
+  completeSubmission,
+  isReviewable,
+  loadPinned,
+  versionConfig,
+  type ProgressionDeps,
+} from "./progression";
 
 type CandidateActor = Extract<Actor, { kind: "candidate" }>;
 
@@ -77,6 +84,27 @@ function closesAt(p: typeof stageProgress.$inferSelect): Date | null {
   return p.extendedUntil ?? p.graceUntil ?? p.dueAt;
 }
 
+/**
+ * A handed-in form, custom step or task can be changed (answers, files) until the step closes:
+ * the application is still open and nobody has reviewed it yet. Each change is a new version;
+ * it doesn't move the candidate on again or resend emails. Steps without a deadline and
+ * quizzes can't be changed.
+ */
+function canEdit(s: NonNullable<Awaited<ReturnType<typeof loadStage>>>, now: Date): boolean {
+  const close = closesAt(s.progress);
+  // Handed in and waiting for review, or a step nobody reviews (it passes on hand-in).
+  const handedIn =
+    s.progress.state === "submitted" || (s.progress.state === "passed" && !isReviewable(s.node));
+  return (
+    handedIn &&
+    (s.node.type === "form" || s.node.type === "custom" || s.node.type === "task") &&
+    s.pinned.app.status !== "closed_rejected" &&
+    s.pinned.app.status !== "closed_withdrawn" &&
+    !!close &&
+    now <= close
+  );
+}
+
 export type StageView = NonNullable<Awaited<ReturnType<typeof getCandidateStage>>>;
 
 /** What the candidate sees for a stage. Never includes answer keys or reviewer data. */
@@ -113,6 +141,7 @@ export async function getCandidateStage(
     closesAt: close,
     closed: !!close && now > close,
     canSubmit: s.canSubmit && (!close || now <= close),
+    canEdit: canEdit(s, now),
     draft: s.progress.draft ?? {},
     lastSubmission: latest
       ? {
@@ -120,6 +149,17 @@ export async function getCandidateStage(
           data: latest.data,
           submittedAt: latest.submittedAt,
           isLate: latest.isLate,
+          // Names of the files handed in, so a change can show (and replace) them.
+          files: latest.fileIds.length
+            ? Object.fromEntries(
+                (
+                  await db
+                    .select({ id: files.id, name: files.filename })
+                    .from(files)
+                    .where(inArray(files.id, latest.fileIds))
+                ).map((f) => [f.id, f.name]),
+              )
+            : {},
         }
       : null,
     session: session
@@ -219,8 +259,10 @@ export async function submitForm(
 ): Promise<SubmitResult> {
   const now = deps.now?.() ?? new Date();
   const s = await loadStage(db, actor, applicationId, nodeId);
-  if (!s?.canSubmit || (s.node.type !== "form" && s.node.type !== "custom"))
+  if (!s || (s.node.type !== "form" && s.node.type !== "custom"))
     return { ok: false, error: "This step isn't open." };
+  const editing = canEdit(s, now);
+  if (!s.canSubmit && !editing) return { ok: false, error: "This step isn't open." };
   const timing = lateness(s.progress, now);
   if (timing.closed) return { ok: false, error: "The deadline has passed." };
 
@@ -240,8 +282,10 @@ export async function submitForm(
   const clean = Object.fromEntries(
     fields.filter((f) => f.kind !== "section").map((f) => [f.id, answers[f.id] ?? null]),
   );
-  await recordSubmission(db, s.progress.id, clean, [...okFiles], timing, now);
-  await afterSubmit(db, deps, s, { answers: stringAnswers(clean), late: timing.late });
+  await recordSubmission(db, s.progress.id, clean, [...okFiles], timing, now, editing);
+  // A change to answers already handed in is just a new version.
+  if (!editing)
+    await afterSubmit(db, deps, s, { answers: stringAnswers(clean), late: timing.late });
   return { ok: true, late: timing.late };
 }
 
@@ -258,7 +302,7 @@ export async function submitTask(
   const s = await loadStage(db, actor, applicationId, nodeId);
   if (!s || s.node.type !== "task") return { ok: false, error: "This step isn't open." };
   const resubmitting = s.progress.state === "submitted";
-  if (!(s.canSubmit || (resubmitting && s.node.config.allowResubmit)))
+  if (!(s.canSubmit || (resubmitting && (s.node.config.allowResubmit || canEdit(s, now)))))
     return { ok: false, error: "This step isn't open." };
   const timing = lateness(s.progress, now);
   if (timing.closed) return { ok: false, error: "The deadline has passed." };
@@ -321,6 +365,8 @@ async function recordSubmission(
   fileIds: string[],
   timing: { late: boolean; minutes: number },
   now: Date,
+  /** A change to a version already handed in: the step keeps its state. */
+  editing = false,
 ) {
   const [last] = await db
     .select({ version: submissions.version })
@@ -339,7 +385,7 @@ async function recordSubmission(
   });
   await db
     .update(stageProgress)
-    .set({ state: "submitted", submittedAt: now, draft: null })
+    .set({ ...(editing ? {} : { state: "submitted" as const }), submittedAt: now, draft: null })
     .where(eq(stageProgress.id, progressId));
 }
 

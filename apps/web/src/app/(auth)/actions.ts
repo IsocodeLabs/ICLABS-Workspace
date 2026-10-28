@@ -14,6 +14,7 @@ import { sendFreshCredentials } from "@/server/candidates/invites";
 import { appUrl, queueEmail } from "@/server/email";
 import { requireCandidate } from "@/server/auth/session";
 import { clientIp } from "@/server/request";
+import { redirectIfMaintenance } from "@/server/maintenance";
 
 export type FormState = { error?: string; retryMinutes?: number } | undefined;
 
@@ -23,6 +24,7 @@ const signInSchema = z.object({
 });
 
 export async function signInAction(_prev: FormState, form: FormData): Promise<FormState> {
+  await redirectIfMaintenance();
   const parsed = signInSchema.safeParse({
     email: form.get("email"),
     password: form.get("password"),
@@ -59,6 +61,7 @@ export async function freshCredentialsAction(
   _prev: FreshState | undefined,
   form: FormData,
 ): Promise<FreshState> {
+  await redirectIfMaintenance();
   const parsed = z
     .email()
     .max(254)
