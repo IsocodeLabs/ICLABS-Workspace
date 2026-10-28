@@ -23,6 +23,8 @@ export const TEMPLATE_KEYS = [
   "interview_updated",
   "error_alert",
   "fresh_credentials",
+  "final_extension_bgi",
+  "final_extension_details",
 ] as const;
 export type TemplateKey = (typeof TEMPLATE_KEYS)[number];
 
@@ -268,6 +270,46 @@ The temporary password works for 72 hours. You'll choose your own password when 
 [[button:Sign in to the workspace|{{login_url}}]]
 
 Didn't ask for this? You can ignore this email: only someone with access to this inbox can use the password.
+
+In case of any doubt or enquiry, contact hr@isocodelabs.com.
+
+The Isocode Labs hiring team`,
+  },
+  final_extension_bgi: {
+    description:
+      "Sent by an admin: final extension to 31 October for everyone in the Business Growth process",
+    subject: "{{role}}: final deadline extended to 31 October",
+    body: `Hi {{first_name}},
+
+Because of the many queries we received, we are extending the deadline for your {{role}} application to 31 October, end of day (11:59 pm IST). This is the final extension.
+
+Your current step: {{stage}}.
+
+If you haven't submitted yet, please complete your current step and the task by then.
+
+Shortlisted candidates from those who have submitted the task will have an interview scheduled next week.
+
+Temporary password expired? You can now get a fresh one yourself: use the "Login expired? Get fresh credentials here" option on the login page at workspace.isocodelabs.com.
+
+[[button:Open your dashboard|{{stage_url}}]]
+
+In case of any doubt or enquiry, contact hr@isocodelabs.com.
+
+The Isocode Labs hiring team`,
+  },
+  final_extension_details: {
+    description:
+      "Sent by an admin: final extension of the details forms to 31 October (Software Engineering and Product Management)",
+    subject: "{{role}}: details forms now due 31 October (final extension)",
+    body: `Hi {{first_name}},
+
+Because of the many queries we received, we are extending the deadline for the details forms of your {{role}} application to 31 October, end of day (11:59 pm IST). This is the final extension.
+
+The task will be shared on Monday, 2 November, only with candidates who completed both details forms by this deadline. Further information about the task and its deadline will come along with the task.
+
+Temporary password expired? You can now get a fresh one yourself: use the "Login expired? Get fresh credentials here" option on the login page at workspace.isocodelabs.com.
+
+[[button:Open your dashboard|{{stage_url}}]]
 
 In case of any doubt or enquiry, contact hr@isocodelabs.com.
 

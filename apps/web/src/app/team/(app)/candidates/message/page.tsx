@@ -28,6 +28,7 @@ export default async function MessageCandidatesPage() {
             key,
             label: v.label,
             audience: v.audience,
+            anyStep: v.group === "pipeline",
           }))}
         />
       )}

@@ -11,7 +11,7 @@ import {
 } from "./actions";
 
 type Track = { workflowId: string; label: string; nodes: { id: string; title: string }[] };
-type Kind = { key: string; label: string; audience: string };
+type Kind = { key: string; label: string; audience: string; anyStep?: boolean };
 
 export function MessagePanel({ tracks, kinds }: { tracks: Track[]; kinds: Kind[] }) {
   const [workflowId, setWorkflowId] = useState(tracks[0]?.workflowId ?? "");
@@ -51,10 +51,15 @@ export function MessagePanel({ tracks, kinds }: { tracks: Track[]; kinds: Kind[]
               ))}
             </Select>
           </Field>
-          <Field label="Step" htmlFor="m-node">
+          <Field
+            label="Step"
+            htmlFor="m-node"
+            hint={kind?.anyStep ? "Not used: this email goes to everyone in the track." : undefined}
+          >
             <Select
               id="m-node"
               value={nodeId}
+              disabled={kind?.anyStep}
               onChange={(e) => {
                 setNodeId(e.target.value);
                 changed();
@@ -135,6 +140,7 @@ export function MessagePanel({ tracks, kinds }: { tracks: Track[]; kinds: Kind[]
                     <th className="px-3 py-2">Name</th>
                     <th className="px-3 py-2">Email</th>
                     <th className="px-3 py-2">Role</th>
+                    <th className="px-3 py-2">Step named in the email</th>
                     <th className="px-3 py-2" />
                   </tr>
                 </thead>
@@ -145,6 +151,7 @@ export function MessagePanel({ tracks, kinds }: { tracks: Track[]; kinds: Kind[]
                       <td className="px-3 py-1.5">{r.name}</td>
                       <td className="px-3 py-1.5">{r.email}</td>
                       <td className="px-3 py-1.5">{r.roleTitle}</td>
+                      <td className="px-3 py-1.5">{r.stageTitle}</td>
                       <td className="px-3 py-1.5">
                         {r.alreadySent && <StatusPill tone="neutral">Already sent</StatusPill>}
                       </td>

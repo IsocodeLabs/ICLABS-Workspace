@@ -60,6 +60,11 @@ export const workflows = pgTable(
     isDefault: boolean("is_default").notNull().default(false),
     publishedVersionId: text("published_version_id"),
     branding: jsonb("branding").$type<Record<string, unknown>>().notNull().default({}),
+    /**
+     * Step id → ISO time: that step closes then for everyone, however late it opens (a final
+     * extension). Steps that open later than the date are closed on arrival.
+     */
+    stepClosesBy: jsonb("step_closes_by").$type<Record<string, string>>().notNull().default({}),
     ...timestamps,
   },
   (t) => [index("workflows_cycle_idx").on(t.cycleId)],

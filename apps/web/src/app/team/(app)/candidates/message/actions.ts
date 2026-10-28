@@ -23,7 +23,13 @@ const input = z.object({
 export type AnnouncementPreview = {
   subject: string;
   text: string;
-  recipients: { name: string; email: string; roleTitle: string; alreadySent: boolean }[];
+  recipients: {
+    name: string;
+    email: string;
+    roleTitle: string;
+    stageTitle: string;
+    alreadySent: boolean;
+  }[];
   toSend: number;
   skipped: number;
 };
@@ -49,6 +55,7 @@ export async function previewAnnouncementAction(raw: unknown): Promise<Announcem
       name: r.name,
       email: r.email,
       roleTitle: r.roleTitle,
+      stageTitle: r.stageTitle,
       alreadySent: r.alreadySent,
     })),
     toSend: recipients.filter((r) => !r.alreadySent).length,

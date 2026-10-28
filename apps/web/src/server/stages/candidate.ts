@@ -108,7 +108,8 @@ export async function getCandidateStage(
     applicationId,
     node: publicNode(s.node, s.progress.id),
     state: s.progress.state,
-    dueAt: s.progress.dueAt,
+    // An extension is the date they now work to, so it's the one shown as "Due".
+    dueAt: s.progress.extendedUntil ?? s.progress.dueAt,
     closesAt: close,
     closed: !!close && now > close,
     canSubmit: s.canSubmit && (!close || now <= close),
@@ -601,7 +602,7 @@ export async function submitAssessment(
     .from(questions)
     .where(inArray(questions.id, session.questionIds));
   const score = autoScore(qs, session.answers);
-  const late = !!progress!.dueAt && now > progress!.dueAt;
+  const late = !!progress!.dueAt && now > progress!.dueAt && !progress!.extendedUntil;
   await db.insert(submissions).values({
     stageProgressId: progress!.id,
     version: 1,

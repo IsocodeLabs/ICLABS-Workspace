@@ -54,6 +54,12 @@ export default async function CandidatesPage({
               <Link href="/team/candidates/deadline" className="text-sm font-semibold underline">
                 Deadlines
               </Link>
+              <Link
+                href="/team/candidates/final-extension"
+                className="text-sm font-semibold underline"
+              >
+                Final extension
+              </Link>
               <Link href="/team/candidates/message" className="text-sm font-semibold underline">
                 Message candidates
               </Link>

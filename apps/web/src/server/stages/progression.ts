@@ -15,6 +15,7 @@ import {
   teamMembers,
   users,
   workflowVersions,
+  workflows,
   type Db,
 } from "@iclabs/db";
 import {
@@ -102,6 +103,20 @@ export function isReviewable(
 }
 
 /**
+ * A step's dates when it opens now: from the step's own settings, unless the track has a final
+ * close for it (a final extension), which then applies however late the step opens.
+ */
+export async function stepDeadlines(db: Db, workflowId: string, node: WorkflowNode, now: Date) {
+  const [track] = await db
+    .select({ stepClosesBy: workflows.stepClosesBy })
+    .from(workflows)
+    .where(eq(workflows.id, workflowId));
+  const closesBy = track?.stepClosesBy[node.id];
+  if (closesBy) return { dueAt: new Date(closesBy), graceUntil: null };
+  return computeDeadlines(node, now);
+}
+
+/**
  * Opens a stage for the candidate (idempotent) and tells them in the app. No email: candidates
  * only get the invite, a receipt for each submission, and interview emails.
  */
@@ -114,7 +129,7 @@ export async function unlockNode(
   const node = pinned.config.nodes.find((n) => n.id === nodeId);
   if (!node) throw new Error(`node ${nodeId} not in pinned version`);
   const now = deps.now?.() ?? new Date();
-  const { dueAt, graceUntil } = computeDeadlines(node, now);
+  const { dueAt, graceUntil } = await stepDeadlines(db, pinned.app.workflowId, node, now);
   const [created] = await db
     .insert(stageProgress)
     .values({
@@ -332,7 +347,10 @@ export async function sendDeadlineReminders(db: Db, deps: ProgressionDeps) {
       id: stageProgress.id,
       applicationId: stageProgress.applicationId,
       nodeId: stageProgress.nodeId,
-      dueAt: stageProgress.dueAt,
+      // An extension moves the date the candidate works to.
+      dueAt: sql<Date>`coalesce(${stageProgress.extendedUntil}, ${stageProgress.dueAt})`.mapWith(
+        stageProgress.dueAt,
+      ),
     })
     .from(stageProgress)
     .innerJoin(applications, eq(applications.id, stageProgress.applicationId))
@@ -341,7 +359,7 @@ export async function sendDeadlineReminders(db: Db, deps: ProgressionDeps) {
         inArray(stageProgress.state, ["unlocked", "in_progress"]),
         eq(applications.status, "active"),
         isNull(stageProgress.reminderSentAt),
-        sql`${stageProgress.dueAt} > ${now.toISOString()} and ${stageProgress.dueAt} <= ${soon.toISOString()}`,
+        sql`coalesce(${stageProgress.extendedUntil}, ${stageProgress.dueAt}) > ${now.toISOString()} and coalesce(${stageProgress.extendedUntil}, ${stageProgress.dueAt}) <= ${soon.toISOString()}`,
       ),
     );
   for (const r of due) {
@@ -459,6 +477,13 @@ export async function restartDeadlinesFromLogin(
         ).map((a) => `${a.workflowId}:${(a.after as { nodeId?: string } | null)?.nodeId}`)
       : [],
   );
+  // So do steps with a final close on their track.
+  if (workflowIds.length)
+    for (const t of await db
+      .select({ id: workflows.id, stepClosesBy: workflows.stepClosesBy })
+      .from(workflows)
+      .where(inArray(workflows.id, workflowIds)))
+      for (const nodeId of Object.keys(t.stepClosesBy)) fixed.add(`${t.id}:${nodeId}`);
   const changes: DeadlineRestart[] = [];
   for (const { progress: p, app, name, email, roleTitle } of rows) {
     if (!app.workflowVersionId || fixed.has(`${app.workflowId}:${p.nodeId}`)) continue;

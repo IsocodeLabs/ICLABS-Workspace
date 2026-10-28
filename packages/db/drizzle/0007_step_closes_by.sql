@@ -1,0 +1,1 @@
+ALTER TABLE "workflows" ADD COLUMN "step_closes_by" jsonb DEFAULT '{}'::jsonb NOT NULL;
