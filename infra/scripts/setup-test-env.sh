@@ -37,6 +37,9 @@ gcloud run services describe iclabs-workspace --project $P --region $REGION --fo
     -e 's/workspace-uploads-prod/workspace-uploads-test/' >"$TMP/svc.yaml"
 grep -q "name: iclabs-workspace-test" "$TMP/svc.yaml"
 gcloud run services replace "$TMP/svc.yaml" --project $P --region $REGION
+# Public like production: the app does its own access control.
+gcloud run services add-iam-policy-binding iclabs-workspace-test --project $P --region $REGION \
+  --member allUsers --role roles/run.invoker --format=none
 
 echo "3. Run migrations on the test database"
 gcloud run jobs describe workspace-migrate --project $P --region $REGION --format=export |
@@ -68,7 +71,7 @@ for job in "email-outbox:/api/cron/email-outbox" "stages-sweep:/api/cron/stages"
   gcloud scheduler jobs describe $name --location $REGION --project $P >/dev/null 2>&1 ||
     gcloud scheduler jobs create http $name --location $REGION --project $P \
       --schedule "* * * * *" --time-zone Etc/UTC --http-method POST \
-      --uri "$URI${job#*:}" --headers "Authorization=Bearer $CRON" --attempt-deadline 120s
+      --uri "$URI${job#*:}" --headers "Authorization=Bearer $CRON" --attempt-deadline 120s --format=none --format=none
 done
 
 echo
