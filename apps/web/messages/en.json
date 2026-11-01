@@ -224,7 +224,7 @@
     "brief": "Brief",
     "deliverables": "What to submit",
     "versions": "You can change your submission until the deadline. We review your latest version.",
-    "interview": "Check your email: you've been sent the calendar link (or a list of times) to choose the best time for your interview. Once it's booked, the date, time and Google Meet link will show here.",
+    "interview": "Check your email: you've been sent the calendar link (or a list of times) to choose the best time for your interview.",
     "interviewBooked": "Your {round} is booked",
     "interviewWhen": "{when} · {minutes} minutes",
     "interviewJoin": "Join Google Meet",
