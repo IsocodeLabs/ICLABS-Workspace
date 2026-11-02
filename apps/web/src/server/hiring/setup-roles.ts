@@ -22,6 +22,7 @@ import { createNode, emptyWorkflow, type Actor, type WorkflowConfig } from "@icl
 import { audit } from "../audit";
 import { startApplication, versionConfig } from "../stages/progression";
 import { ROLE_PROCESSES } from "./role-processes";
+import { applyTaskPack, hasTaskPack, type TaskPackSlug } from "./task-pack";
 import {
   createCycle,
   createRole,
@@ -85,8 +86,10 @@ export async function setupCareersRoles(
     if (!role) log(`created role ${want.slug}`);
     const track = await openTrack(db, actor, real, want.slug, log);
 
-    if (full) await installOnce(db, actor, want.slug, track.id, full.build(pool), log);
-    else if (!track.publishedVersionId) {
+    if (full) {
+      await installOnce(db, actor, want.slug, track.id, full.build(pool), log);
+      if (hasTaskPack(want.slug)) await installTaskPackOnce(db, actor, want.slug, track.id, log);
+    } else if (!track.publishedVersionId) {
       await publish(db, actor, track.id, starterTrack());
       log(`${want.slug}: starter track published`);
     } else log(`${want.slug}: track already set up; left as is`);
@@ -176,6 +179,52 @@ async function installOnce(
   log(
     `${slug}: ${already ? "process was already there" : "process published"} on track ${trackId}; ${moved} candidate(s) moved to it`,
   );
+}
+
+/** Recorded once per track, so the team's later edits to the task are never overwritten. */
+export const TASK_PACK_INSTALLED = "task_pack_installed";
+
+/**
+ * Publishes the take-home task (brief, what to submit, problem statements, one-week deadline) on
+ * the PM and SDE tracks once. It is a new published version; nobody is moved onto it here, and
+ * candidates only get the task when an admin releases it from Candidates > Release task.
+ */
+async function installTaskPackOnce(
+  db: Db,
+  actor: Actor & { kind: "team" },
+  slug: TaskPackSlug,
+  trackId: string,
+  log: (msg: string) => void,
+) {
+  const [done] = await db
+    .select({ id: auditLog.id })
+    .from(auditLog)
+    .where(and(eq(auditLog.action, TASK_PACK_INSTALLED), eq(auditLog.entityId, trackId)))
+    .limit(1);
+  if (done) {
+    log(`${slug}: task already installed on track ${trackId}; left as is`);
+    return;
+  }
+  const data = await getBuilderData(db, actor, trackId);
+  const published = data.published?.config as WorkflowConfig | undefined;
+  if (!published?.nodes.some((n) => n.id === "task")) {
+    log(`${slug}: no task step on track ${trackId}; task not installed`);
+    return;
+  }
+  await publish(db, actor, trackId, applyTaskPack(published, slug));
+  const [wf] = await db
+    .select({ versionId: workflows.publishedVersionId })
+    .from(workflows)
+    .where(eq(workflows.id, trackId));
+  await audit(db, {
+    actorUserId: actor.userId,
+    via: "system",
+    action: TASK_PACK_INSTALLED,
+    entity: "workflow",
+    entityId: trackId,
+    after: { role: slug, versionId: wf!.versionId },
+  });
+  log(`${slug}: task published on track ${trackId}`);
 }
 
 const isEmptyStarter = (c: WorkflowConfig) =>

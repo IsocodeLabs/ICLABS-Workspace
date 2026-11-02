@@ -60,6 +60,9 @@ export default async function CandidatesPage({
               >
                 Final extension
               </Link>
+              <Link href="/team/candidates/release" className="text-sm font-semibold underline">
+                Release the task
+              </Link>
               <Link href="/team/candidates/message" className="text-sm font-semibold underline">
                 Message candidates
               </Link>
