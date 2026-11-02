@@ -182,7 +182,7 @@ async function installOnce(
 }
 
 /** Recorded once per track, so the team's later edits to the task are never overwritten. */
-export const TASK_PACK_INSTALLED = "task_pack_installed";
+export const TASK_PACK_INSTALLED = "task_pack_v2_installed";
 
 /**
  * Publishes the take-home task (brief, what to submit, problem statements, one-week deadline) on
