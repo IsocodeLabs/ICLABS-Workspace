@@ -25,6 +25,7 @@ export const TEMPLATE_KEYS = [
   "fresh_credentials",
   "final_extension_bgi",
   "final_extension_details",
+  "task_released",
 ] as const;
 export type TemplateKey = (typeof TEMPLATE_KEYS)[number];
 
@@ -316,6 +317,24 @@ Temporary password expired? You can get a fresh one yourself with "Login expired
 [[button:Open your dashboard|{{stage_url}}]]
 
 Please send any queries to hr@isocodelabs.com only. Please don't reach out to or email other members of the team directly, as your query may then stay unresolved.
+
+The Isocode Labs hiring team`,
+  },
+  task_released: {
+    description:
+      "Sent by an admin when the take-home task opens for people who completed the earlier steps",
+    subject: "{{role}}: your take-home task is open, due {{deadline}}",
+    body: `Hi {{first_name}},
+
+Thank you for completing your details and the written questions for {{role}}. Your take-home task is now open on your workspace.
+
+You'll see a few client briefs. Pick one and follow the instructions in the task. You have until {{deadline}} to submit.
+
+[[button:Open your task|{{stage_url}}]]
+
+Temporary password expired? You can get a fresh one yourself with "Login expired? Get fresh credentials here" on the login page at workspace.isocodelabs.com.
+
+In case of any doubt or enquiry, contact hr@isocodelabs.com.
 
 The Isocode Labs hiring team`,
   },
